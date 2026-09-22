@@ -1,0 +1,17 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <h1><%= t('teacher.subjectsTitle') %></h1>
+  <div class="lesson-grid">
+    <% subjects.forEach(function(s){ %>
+      <div class="card lesson-card">
+        <div class="lesson-card-head">
+          <span class="chip chip-subject"><%= s.label %></span>
+          <span class="small muted"><%= t('teacher.lessonsTitle') %>: <%= s.lesson_count %></span>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+  <p class="hint"><%= t('teacher.generateHint') %></p>
+</main>
+<%- include('../partials/foot') %>

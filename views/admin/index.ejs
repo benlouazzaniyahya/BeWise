@@ -1,0 +1,96 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <h1><%= t('admin.title') %></h1>
+
+  <div class="stat-grid">
+    <div class="stat"><strong><%= stats.teachers || 0 %></strong><span><%= t('admin.teachers') %></span></div>
+    <div class="stat"><strong><%= stats.parents || 0 %></strong><span><%= t('admin.parents') %></span></div>
+    <div class="stat"><strong><%= stats.children || 0 %></strong><span><%= t('admin.children') %></span></div>
+    <div class="stat"><strong><%= stats.lessons || 0 %></strong><span><%= t('admin.lessons') %></span></div>
+    <div class="stat"><strong><%= stats.approved_games || 0 %></strong><span><%= t('admin.approvedGames') %></span></div>
+  </div>
+
+  <div class="card">
+    <h2><%= t('admin.usersTitle') %></h2>
+    <div class="create-form">
+      <form action="/admin/users" method="post" class="inline-row">
+        <input type="hidden" name="role" value="teacher">
+        <input name="email" type="email" placeholder="email" required>
+        <input name="password" type="text" placeholder="<%= t('admin.newUserPassword') %>" required>
+        <button class="btn btn-primary btn-sm"><%= t('admin.createTeacher') %></button>
+      </form>
+      <form action="/admin/users" method="post" class="inline-row">
+        <input type="hidden" name="role" value="parent">
+        <input name="email" type="email" placeholder="email" required>
+        <input name="password" type="text" placeholder="<%= t('admin.newUserPassword') %>" required>
+        <button class="btn btn-primary btn-sm"><%= t('admin.createParent') %></button>
+      </form>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th><%= t('common.email') %></th>
+          <th><%= t('admin.role') %></th>
+          <th><%= t('common.language') %></th>
+          <th><%= t('admin.memberSince') %></th>
+          <th><%= t('common.actions') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% users.forEach(function(u){ %>
+          <tr>
+            <td><%= u.email || ('Google ' + (u.google_id||'').slice(0,8)) %></td>
+            <td><span class="chip chip-<%= u.role %>"><%= t({admin:'auth.roleAdmin',teacher:'auth.roleTeacher',parent:'auth.roleParent'}[u.role]) %></span></td>
+            <td><%= {en:'English',fr:'Français',ar:'العربية'}[u.language] %></td>
+            <td class="small"><%= u.created_at %></td>
+            <td>
+              <% if (u.role !== 'admin') { %>
+                <form action="/admin/users/<%= u.id %>/delete" method="post" onsubmit="return confirm('<%= t('admin.confirmDeleteUser') %>')">
+                  <button class="btn btn-danger btn-sm"><%= t('admin.deleteUser') %></button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><%= t('admin.childrenTitle') %></h2>
+    <% if (!children.length) { %><p class="muted"><%= t('admin.noChildren') %></p><% } %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th><%= t('parent.childName') %></th>
+          <th><%= t('parent.age') %></th>
+          <th><%= t('parent.gender') %></th>
+          <th><%= t('parent.profileType') %></th>
+          <th><%= t('childAuth.loginId') %></th>
+          <th><%= t('admin.ownedBy') %></th>
+          <th><%= t('common.actions') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% children.forEach(function(c){ %>
+          <tr>
+            <td><%= c.display_name %></td>
+            <td><%= c.age %></td>
+            <td><%= t(c.gender === 'male' ? 'parent.male' : 'parent.female') %></td>
+            <td><%= t(c.profile_type === 'special_needs' ? 'parent.profileSpecial' : 'parent.profileStandard') %></td>
+            <td><%= c.child_login_id %></td>
+            <td><%= c.parent_email %></td>
+            <td>
+              <form action="/admin/children/<%= c.id %>/delete" method="post" onsubmit="return confirm('<%= t('admin.confirmDeleteChild') %>')">
+                <button class="btn btn-danger btn-sm"><%= t('admin.deleteChild') %></button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</main>
+<%- include('../partials/foot') %>

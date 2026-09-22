@@ -1,0 +1,10 @@
+<%- include('partials/head') %>
+<%- include('partials/nav') %>
+<main class="wrap page center">
+  <div class="card">
+    <h1><%= code || 500 %></h1>
+    <p class="muted"><%= t(messageKey || 'common.error') %></p>
+    <a class="btn btn-primary" href="/home"><%= t('common.back') %></a>
+  </div>
+</main>
+<%- include('partials/foot') %>

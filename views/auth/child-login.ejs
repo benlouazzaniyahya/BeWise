@@ -1,0 +1,27 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="card child-card auth-card">
+    <h1><%= t('childAuth.title') %></h1>
+    <p class="muted"><%= t('childAuth.sub') %></p>
+
+    <form action="/child-login" method="post">
+      <div class="field">
+        <label for="child_login_id"><%= t('childAuth.loginId') %></label>
+        <input id="child_login_id" name="child_login_id" type="text" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password"><%= t('childAuth.password') %></label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" type="submit"><%= t('childAuth.title') %></button>
+    </form>
+
+    <p class="center"><a href="/login"><%= t('auth.haveAccount') %></a></p>
+  </div>
+
+  <div class="card demo-card">
+    <strong><%= t('childAuth.demo') %></strong>
+  </div>
+</main>
+<%- include('../partials/foot') %>
