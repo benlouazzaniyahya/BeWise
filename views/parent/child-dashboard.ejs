@@ -1,0 +1,123 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small"><%= t('parent.dashboardFor') %></p>
+      <h1><%= child.display_name %></h1>
+      <p class="muted small">
+        <%= t(child.gender === 'male' ? 'parent.male' : 'parent.female') %> · <%= child.age %> <%= t('parent.age') %> ·
+        <%= t(child.profile_type === 'special_needs' ? 'parent.profileSpecial' : 'parent.profileStandard') %>
+        · <%= {en:'English',fr:'Français',ar:'العربية'}[child.language] %>
+      </p>
+    </div>
+    <div class="row-buttons">
+      <a class="btn btn-ghost" href="/parent"><%= t('nav.children') %></a>
+      <a class="btn btn-ghost" href="/parent/children/<%= child.id %>/edit"><%= t('common.edit') %></a>
+      <form action="/parent/children/<%= child.id %>/delete" method="post" onsubmit="return confirm('<%= t('parent.childDeleted') + '?' %>')">
+        <button class="btn btn-danger btn-sm"><%= t('common.delete') %></button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row-2">
+    <div class="card">
+      <h2><%= t('parent.overallProgress') %></h2>
+      <div class="progress progress-lg">
+        <div class="progress-bar" style="width:<%= overallPct %>%"></div>
+      </div>
+      <p class="small muted"><%= passedCount %>/<%= total %> <%= t('admin.lessons') %> · <%= overallPct %>%</p>
+
+      <% if (spark) { %>
+        <h3 class="small-title"><%= t('adaptive.trend') %></h3>
+        <svg viewBox="0 0 <%= spark.w %> <%= spark.h %>" class="sparkline" aria-hidden="true">
+          <path d="<%= spark.area %>" class="area"></path>
+          <path d="<%= spark.line %>" class="line"></path>
+          <circle cx="<%= spark.last[0] %>" cy="<%= spark.last[1] %>" r="3" class="dot"></circle>
+        </svg>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h2><%= t('parent.learningSpeed') %> · <%= speed.speedScore %>/100</h2>
+      <p class="speed-report">
+        <%= speedKey === 'fast' ? t('parent.speedFast', { pct: Math.round(speed.firstTryRate * 100) }) : speedKey === 'slow' ? t('parent.speedSlow') : t('parent.speedSteady') %>
+      </p>
+      <p class="small <%= speed.trend === 'up' ? 'ok' : speed.trend === 'down' ? 'bad' : 'muted' %>">
+        <%= speed.trend === 'up' ? '▲' : speed.trend === 'down' ? '▼' : '—' %> <%= t({up:'parent.trendUp',down:'parent.trendDown',flat:'parent.trendFlat'}[speed.trend]) %>
+      </p>
+      <dl class="stat-dl">
+        <dt><%= t('parent.attemptsToPass') %></dt>
+        <dd><%= speed.avgAttemptsToPass == null ? '—' : speed.avgAttemptsToPass.toFixed(1) %></dd>
+        <dt><%= t('parent.passedCount') %></dt>
+        <dd><%= speed.passedCount %></dd>
+      </dl>
+      <p class="hint small"><%= t('adaptive.explained') %></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><%= t('parent.childLoginCard') %></h2>
+    <p class="hint"><%= t('parent.childLoginCardHint') %> — <strong><%= child.child_login_id %></strong> / (password set by parent)</p>
+    <form action="/parent/children/<%= child.id %>/reset-password" method="post" class="inline-row">
+      <input name="password" type="text" placeholder="<%= t('parent.newPassword') %>" minlength="6" required>
+      <button class="btn btn-primary btn-sm"><%= t('parent.resetPassword') %></button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2><%= t('parent.subjectScores') %></h2>
+    <div class="subject-grid">
+      <% bySubject.forEach(function(s){ %>
+        <div class="subj-card">
+          <strong><%= s.label %></strong>
+          <p class="small muted"><%= s.passed %>/<%= s.total %> <%= t('parent.perSubject') %> · <%= s.pct %>%</p>
+          <div class="progress"><div class="progress-bar" style="width:<%= s.pct %>%"></div></div>
+          <% if (s.latest === null) { %><p class="hint">—</p>
+          <% } else { %>
+            <p class="small muted"><%= t('parent.latestScore') %>: <%= s.latest %>% · <%= t('parent.progressBar') %>: <%= s.avgBest %>%</p>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><%= t('parent.badges') %> (<%= badges.length %>)</h2>
+    <% if (!badges.length) { %><p class="muted"><%= t('parent.noBadges') %></p><% } %>
+    <div class="badge-row">
+      <% badges.forEach(function(b){ %>
+        <div class="badge-chip" title="<%= b.lesson_title %>">
+          <span class="badge-icon">★</span>
+          <span class="small"><%= b.lesson_title %></span>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><%= t('parent.attempts') %></h2>
+    <% if (!attempts.length) { %><p class="muted"><%= t('parent.noAttempts') %></p><% } %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th><%= t('game.attempt') %></th>
+          <th><%= t('teacher.lessonTitle') %> / <%= t('teacher.subject') %></th>
+          <th><%= t('common.score') %></th>
+          <th><%= t('common.date') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% attempts.forEach(function(a){ %>
+          <tr>
+            <td>#<%= a.attempt_number %></td>
+            <td><%= a.lesson_title %> <span class="small muted">(<%= subjectLabel(a.subject_name) %>)</span></td>
+            <td><strong><%= a.score %></strong> / <%= a.max_score %> (<%= Math.round(a.score / a.max_score * 100) %>% ≥ <%= a.target_score %>% → <%= Math.round(a.score / a.max_score * 100) >= a.target_score ? '✔' : '✖' %>)</td>
+            <td class="small"><%= a.completed_at %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</main>
+<%- include('../partials/foot') %>

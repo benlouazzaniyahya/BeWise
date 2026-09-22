@@ -1,0 +1,93 @@
+<%- include('../partials/head') %>
+<% if (busy) { %><meta http-equiv="refresh" content="5"><% } %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small"><%= t('teacher.forSubject') %> <%= subject_label %> · <%= t('common.level') %> <%= lesson.level %> · <%= t('common.score') %> ≥ <%= lesson.target_score %>%</p>
+      <h1><%= lesson.title %></h1>
+    </div>
+    <div>
+      <a class="btn btn-ghost" href="/teacher"><%= t('teacher.viewLessons') %></a>
+      <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>/edit"><%= t('common.edit') %></a>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary><%= t('teacher.lessonContentPreview') %></summary>
+      <p class="prewrap"><%= lesson.raw_lesson_text %></p>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2><%= t('teacher.generateGames') %></h2>
+    <form action="/teacher/lessons/<%= lesson.id %>/generate" method="post">
+      <div class="field">
+        <label><%= t('teacher.genderTheme') %></label>
+        <div class="radio-row">
+          <label class="radio"><input type="radio" name="genderTheme" value="neutral" checked> <%= t('teacher.neutral') %></label>
+          <label class="radio"><input type="radio" name="genderTheme" value="male"> <%= t('teacher.boys') %></label>
+          <label class="radio"><input type="radio" name="genderTheme" value="female"> <%= t('teacher.girls') %></label>
+          <label class="radio"><input type="radio" name="genderTheme" value="both"> <%= t('teacher.both') %></label>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="difficultyHint"><%= t('common.level') %> <%= t('adaptive.delegate') %></label>
+          <select id="difficultyHint" name="difficultyHint">
+            <% [1,2,3,4,5].forEach(function(lv){ %>
+              <option value="<%= lv %>" <%= (suggested === lv) ? 'selected' : '' %>><%= lv %></option>
+            <% }); %>
+          </select>
+          <p class="hint"><%= t('teacher.generateHint') %></p>
+        </div>
+        <div class="field">
+          <label for="extraInstructions"><%= t('teacher.extraInstructions') %></label>
+          <input id="extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.generateGames') %></button>
+      <% if (busy) { %><span class="muted small"><%= t('teacher.generating') %></span><% } %>
+    </form>
+  </div>
+
+  <% if (jobs.length) { %>
+    <div class="card">
+      <h2><%= t('teacher.aiMode') %></h2>
+      <ul class="job-list">
+        <% jobs.slice(0,5).forEach(function(j){ %>
+          <li>
+            <span class="chip chip-<%= j.status %>"><%= j.status %></span>
+            <%= j.payload ? t({neutral:'teacher.neutral',male:'teacher.boys',female:'teacher.girls'}[JSON.parse(j.payload).genderTheme] || 'teacher.neutral') : '' %>
+            <span class="small muted"><%= t({pending:'teacher.statusPending',running:'teacher.generating',done:'gen.done',failed:'teacher.generationFailed'}[j.status] || '') %></span>
+          </li>
+        <% }); %>
+      </ul>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= t('teacher.gamesTitle') %></h2>
+    <% if (!games.length) { %>
+      <p class="muted"><%= t('teacher.noGames') %></p>
+    <% } %>
+    <% games.forEach(function(g){ %>
+      <div class="game-row">
+        <div class="game-row-meta">
+          <strong><%= t(g.variant === 'special_needs' ? 'teacher.variantSpecial' : 'teacher.variantStandard') %></strong>
+          ·
+          <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g.gender_theme]) %>
+          <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %></span>
+          <% if (g.notes) { %><span class="small muted">(<%= g.notes %>)</span><% } %>
+        </div>
+        <div class="game-row-actions">
+          <a class="btn btn-ghost btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.preview') %></a>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</main>
+<%- include('../partials/foot') %>
