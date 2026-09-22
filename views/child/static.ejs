@@ -1,0 +1,23 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <p class="muted small"><a href="/child"><%= t('child.backToMap') %></a> · <%= subject_label %></p>
+  <h1><%= t('child.staticTitle') %> — <%= lesson.title %></h1>
+  <p class="hint"><%= t('child.staticHint') %></p>
+
+  <a class="btn btn-primary" href="/child/lessons/<%= lesson.id %>"><%= t('child.play') %></a>
+
+  <% if (staticVersion && staticVersion.sections) { %>
+    <div class="card static-version">
+      <% staticVersion.sections.forEach(function(s){ %>
+        <div class="static-section">
+          <strong><%= s.title %></strong>
+          <% if (s.body) { %><p class="prewrap"><%= s.body %></p><% } %>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="card empty"><%= t('child.gameNotReady') %></div>
+  <% } %>
+</main>
+<%- include('../partials/foot') %>

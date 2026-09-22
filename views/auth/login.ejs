@@ -1,0 +1,38 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="card auth-card">
+    <h1><%= t('auth.loginTitle') %></h1>
+    <p class="muted"><%= t('auth.loginSub') %></p>
+
+    <form action="/login" method="post" autocomplete="on">
+      <input type="hidden" name="next" value="<%= next || '/home' %>">
+      <div class="field">
+        <label for="email"><%= t('common.email') %></label>
+        <input id="email" name="email" type="email" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password"><%= t('common.password') %></label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit"><%= t('nav.signin') %></button>
+    </form>
+
+    <% if (googleEnabled) { %>
+      <div class="divider"><%= t('auth.or') %></div>
+      <a class="btn btn-google btn-block" href="/auth/google"><%= t('auth.google') %></a>
+    <% } %>
+
+    <p class="center">
+      <a href="/signup"><%= t('auth.noAccount') %></a>
+      ·
+      <a href="/child-login"><%= t('nav.childSignin') %></a>
+    </p>
+  </div>
+
+  <div class="card demo-card">
+    <strong><%= t('auth.demoHint') %></strong>
+    <p class="muted small"><%= t('auth.demoHintSub') %></p>
+  </div>
+</main>
+<%- include('../partials/foot') %>

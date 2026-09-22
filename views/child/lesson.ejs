@@ -1,0 +1,113 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <p class="muted small"><a href="/child"><%= t('child.backToMap') %></a> · <%= subject_label %></p>
+  <h1><%= lesson.title %></h1>
+
+  <div class="row-2 lesson-meta">
+    <div>
+      <span class="chip chip-<%= status %>"><%= t({passed:'child.statusPassed',unlocked:'child.statusUnlocked',locked:'child.statusLocked',in_progress:'child.statusInProgress'}[status]) %></span>
+      <span class="small muted"><%= t('child.target') %>: <%= lesson.target_score %>% · <%= attempts.length %> <%= t('game.attempt') %>s</span>
+    </div>
+    <% if (eligible) { %>
+      <div class="row-buttons">
+        <a class="btn btn-ghost btn-sm" href="/child/lessons/<%= lesson.id %>/static"><%= t('child.read') %> · <%= t('child.staticTitle') %></a>
+      </div>
+    <% } %>
+  </div>
+
+  <% if (!eligible) { %>
+    <div class="card empty"><%= t('child.statusLocked') %></div>
+  <% } else if (!game || !gameJson) { %>
+    <div class="card empty"><%= t('child.gameNotReady') %></div>
+  <% } else { %>
+
+  <% if (showResult && lastAttempt) { %>
+    <% var pct = Math.round(lastAttempt.score / lastAttempt.max_score * 100); var passed = pct >= lesson.target_score; %>
+    <div class="card result-card <%= passed ? 'result-pass' : 'result-fail' %>">
+      <h2><%= passed ? t('child.resultsTitle') + ' ' + t('game.q.passed') : t('child.resultsTitle') %></h2>
+      <p class="big-score"><%= lastAttempt.score %>/<%= lastAttempt.max_score %> <%= t('common.points') %> · <%= pct %>%</p>
+      <% if (passed) { %>
+        <p class="ok"><%= t('child.resultsPassed') %></p>
+        <span class="badge-icon">★</span>
+      <% } else { %>
+        <p class="bad"><%= t('child.resultsNotPassed', { need: lesson.target_score }) %></p>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="card game-stage">
+    <div id="game-mount"></div>
+  </div>
+
+  <% if (attempts.length) { %>
+    <div class="card">
+      <h2><%= t('child.attemptsHistory') %> (<%= attempts.length %>)</h2>
+      <p class="hint small"><%= t('child.playAnyTry') %></p>
+
+      <% if (attempts.length >= 2) { %>
+        <div class="compare-grid">
+          <% [attempts[attempts.length-2], attempts[attempts.length-1]].forEach(function(a){ %>
+            <div class="compare-card">
+              <strong><%= t('child.attemptNumber', { n: a.attempt_number }) %></strong>
+              <p class="big-score"><%= a.score %>/<%= a.max_score %></p>
+              <p class="small muted"><%= Math.round(a.score/a.max_score*100) %>% · <%= a.completed_at %></p>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p class="small muted"><%= t('game.attempt') %> #1: <%= attempts[0].score %>/<%= attempts[0].max_score %> · <%= Math.round(attempts[0].score/attempts[0].max_score*100) %>%</p>
+      <% } %>
+    </div>
+  <% } %>
+
+  <% if (status !== 'passed' && teacherApproved) { %>
+    <div class="card">
+      <h2><%= t('child.boosterTitle') %></h2>
+      <p class="hint"><%= t('child.boosterDesc') %></p>
+      <form action="/child/lessons/<%= lesson.id %>/booster" method="post">
+        <button class="btn btn-primary" type="submit"><%= t('child.boosterGenerate') %></button>
+      </form>
+    </div>
+  <% } %>
+
+  <% } %>
+</main>
+
+<% if (gameJson) { %>
+<script type="application/json" id="game-data" data-lesson-id="<%= lesson.id %>" data-game-id="<%= game.id %>"><%- JSON.stringify(gameJson).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="ui-strings"><%- JSON.stringify({
+  correct: t('game.q.correct'), incorrect: t('game.q.incorrect'),
+  next: t('game.q.next'), finish: t('game.q.finish'),
+  question: t('game.q.question'), of: t('game.q.of'),
+  matchLeft: t('game.match.left'), matchRight: t('game.match.right'), matched: t('game.match.matched'), matchLeftCount: t('game.match.leftCount'),
+  fillHint: t('game.fill.hint'), check: t('game.fill.check'), fillGood: t('game.fill.good'), fillAgain: t('game.fill.again'),
+  notSupported: t('game.q.notSupported')
+}).replace(/</g, '\\u003c') %></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var dataEl = document.getElementById('game-data');
+    var uiEl = document.getElementById('ui-strings');
+    if (!dataEl || !window.Bewize) return;
+    var game, ui = {};
+    try { game = JSON.parse(dataEl.textContent); } catch (e) { return; }
+    if (uiEl) { try { ui = JSON.parse(uiEl.textContent); } catch (e) {} }
+    window.Bewize.playGame(document.getElementById('game-mount'), game, {
+      ui: ui,
+      onFinish: function (result) {
+        var body = JSON.stringify({ game_id: dataEl.getAttribute('data-game-id'), answers: result.answers });
+        fetch('/child/lessons/' + dataEl.getAttribute('data-lesson-id') + '/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.ok) { location.href = j.redirect || ('/child/lessons/' + dataEl.getAttribute('data-lesson-id') + '?result=1'); }
+          else { alert(j.message || 'Error'); }
+        }).catch(function () { alert('Error'); });
+      }
+    });
+  });
+</script>
+<% } %>
+
+<%- include('../partials/foot') %>

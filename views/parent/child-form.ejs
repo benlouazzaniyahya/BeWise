@@ -1,0 +1,71 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <h1><%= t(child ? 'parent.editChild' : 'parent.addChild') %></h1>
+  </div>
+
+  <% if (!child) { %>
+    <div class="flash flash-success"><%= t('parent.childNameHint') %></div>
+  <% } %>
+
+  <div class="card">
+    <form action="<%= child ? '/parent/children/' + child.id : '/parent/children' %>" method="post">
+      <div class="field">
+        <label for="display_name"><%= t('parent.childName') %></label>
+        <input id="display_name" name="display_name" type="text" required value="<%= child ? child.display_name : '' %>">
+        <p class="hint"><%= t('parent.childNameHint') %></p>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="age"><%= t('parent.age') %></label>
+          <input id="age" name="age" type="number" min="3" max="18" value="<%= child ? child.age : 7 %>">
+        </div>
+        <div class="field">
+          <label for="gender"><%= t('parent.gender') %></label>
+          <select id="gender" name="gender">
+            <option value="male" <%= child && child.gender === 'male' ? 'selected' : '' %>><%= t('parent.male') %></option>
+            <option value="female" <%= child && child.gender === 'female' ? 'selected' : '' %>><%= t('parent.female') %></option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="profile_type"><%= t('parent.profileType') %></label>
+          <select id="profile_type" name="profile_type">
+            <option value="standard" <%= child && child.profile_type === 'standard' ? 'selected' : '' %>><%= t('parent.profileStandard') %></option>
+            <option value="special_needs" <%= child && child.profile_type === 'special_needs' ? 'selected' : '' %>><%= t('parent.profileSpecial') %></option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="language"><%= t('parent.childLanguage') %></label>
+          <select id="language" name="language">
+            <% LANGS.forEach(function(l){ %>
+              <option value="<%= l %>" <%= (child ? child.language === l : lang === l) ? 'selected' : '' %>><%= {en:'English',fr:'Français',ar:'العربية'}[l] %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+
+      <% if (!child) { %>
+        <div class="field">
+          <label for="child_login_id"><%= t('parent.loginId') %></label>
+          <input id="child_login_id" name="child_login_id" type="text" placeholder="<%= t('parent.loginIdAuto') %>">
+        </div>
+        <div class="field">
+          <label for="password"><%= t('parent.childPassword') %></label>
+          <input id="password" name="password" type="text" required minlength="6">
+          <p class="hint"><%= t('parent.childPasswordHint') %></p>
+        </div>
+      <% } %>
+
+      <button class="btn btn-primary" type="submit"><%= t('common.save') %></button>
+      <% if (child) { %>
+        <a class="btn btn-ghost" href="/parent/children/<%= child.id %>"><%= t('common.cancel') %></a>
+      <% } %>
+    </form>
+  </div>
+</main>
+<%- include('../partials/foot') %>

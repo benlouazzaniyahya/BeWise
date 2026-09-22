@@ -1,0 +1,35 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <h1><%= t('teacher.lessonsTitle') %></h1>
+    <a class="btn btn-primary" href="/teacher/lessons/new"><%= t('teacher.newLesson') %></a>
+  </div>
+
+  <% if (!lessons.length) { %>
+    <div class="card empty"><%= t('teacher.noLessons') %></div>
+  <% } %>
+
+  <div class="lesson-grid">
+    <% lessons.forEach(function(l){ %>
+      <div class="card lesson-card">
+        <div class="lesson-card-head">
+          <span class="chip chip-subject"><%= l.subject_label %></span>
+          <span class="small muted">Lv <%= l.level %> · <%= t('common.score') %> ≥ <%= l.target_score %>%</span>
+        </div>
+        <h3><%= l.title %></h3>
+        <p class="small muted clamp"><%= l.raw_lesson_text %></p>
+        <div class="chips-row">
+          <% if (!l.games.length) { %>
+            <span class="chip chip-muted"><%= t('teacher.noGames') %></span>
+          <% } %>
+          <% l.games.forEach(function(g){ %>
+            <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %> · <%= g.variant === 'special_needs' ? t('teacher.variantSpecial') : t('teacher.variantStandard') %> · <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g.gender_theme]) %></span>
+          <% }); %>
+        </div>
+        <a class="btn btn-primary btn-sm" href="/teacher/lessons/<%= l.id %>"><%= t('common.view') %></a>
+      </div>
+    <% }); %>
+  </div>
+</main>
+<%- include('../partials/foot') %>

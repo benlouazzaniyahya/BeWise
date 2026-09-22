@@ -1,0 +1,38 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <h1><%= t('child.welcome') %>, <%= child.display_name %>! <%= t('child.lessonMap') %></h1>
+
+  <% if (!bySubject.length) { %>
+    <div class="card empty"><%= t('child.noLessons') %></div>
+  <% } %>
+
+  <% bySubject.forEach(function(g){ %>
+    <div class="card">
+      <h2 class="subject-title"><%= g.label %></h2>
+      <% g.lessons.forEach(function(m){ %>
+        <% var l = m.lesson; var allowed = m.status !== 'locked'; %>
+        <div class="lesson-row <%= m.status %>">
+          <div class="lesson-idx">
+            <% if (m.status === 'passed') { %><span class="status-dot ok">✔</span>
+            <% } else if (allowed) { %><span class="status-dot ready">▶</span>
+            <% } else { %><span class="status-dot">·</span><% } %>
+          </div>
+          <div class="lesson-main">
+            <strong><%= l.title %></strong>
+            <span class="chip chip-<%= m.status %>">
+              <%= t({passed:'child.statusPassed',unlocked:'child.statusUnlocked',locked:'child.statusLocked',in_progress:'child.statusInProgress'}[m.status]) %>
+            </span>
+            <% if (m.best !== null) { %><span class="small muted"><%= t('child.bestScore') %> <%= m.best %>%</span><% } %>
+            <% if (m.badge) { %><span class="badge-icon badge-small">★</span><% } %>
+          </div>
+          <div class="lesson-actions">
+            <a class="btn <%= allowed ? 'btn-primary' : 'btn-disabled' %> btn-sm" href="/child/lessons/<%= l.id %>"><%= t('child.play') %></a>
+            <a class="btn btn-ghost btn-sm <%= allowed ? '' : 'btn-disabled' %>" href="/child/lessons/<%= l.id %>/static"><%= t('child.read') %></a>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% }); %>
+</main>
+<%- include('../partials/foot') %>

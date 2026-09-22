@@ -1,0 +1,50 @@
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="<%= user ? (user.role==='admin'?'/admin':user.role==='teacher'?'/teacher':'/parent') : (child ? '/child' : '/home') %>">
+      <span class="brand-mark">B</span> <span><%= t('app.name') %></span>
+    </a>
+
+    <nav class="nav">
+      <% if (user) { %>
+        <% if (user.role === 'admin') { %>
+          <a href="/admin"><%= t('nav.dashboard') %></a>
+        <% } else if (user.role === 'teacher') { %>
+          <a href="/teacher"><%= t('nav.lessons') %></a>
+          <a href="/teacher/subjects"><%= t('teacher.subjectsTitle') %></a>
+        <% } else { %>
+          <a href="/parent"><%= t('nav.children') %></a>
+        <% } %>
+
+        <% if (!child) { %>
+          <form action="/language" method="post" class="lang-form">
+            <input type="hidden" name="next" value="<%= requestPath || '' %>">
+            <label class="sr-only" for="lang-sel"><%= t('nav.language') %></label>
+            <select id="lang-sel" name="lang" onchange="this.form.submit()">
+              <% ['en','fr','ar'].forEach(function(l){ %>
+                <option value="<%= l %>" <%= lang===l ? 'selected' : '' %>><%= {en:'English',fr:'Français',ar:'العربية'}[l] %></option>
+              <% }); %>
+            </select>
+          </form>
+          <form action="/logout" method="post" class="inline">
+            <button class="btn btn-ghost btn-sm" type="submit"><%= t('nav.logout') %></button>
+          </form>
+        <% } %>
+      <% } else if (child) { %>
+        <span class="chip chip-green"><%= t('childAuth.title') %></span>
+        <form action="/logout" method="post" class="inline">
+          <button class="btn btn-ghost btn-sm" type="submit"><%= t('nav.logout') %></button>
+        </form>
+      <% } else { %>
+        <a href="/login" class="nav-link"><%= t('nav.signin') %></a>
+        <a href="/signup" class="btn btn-primary btn-sm"><%= t('nav.signup') %></a>
+        <a href="/child-login" class="btn btn-ghost btn-sm"><%= t('nav.childSignin') %></a>
+      <% } %>
+    </nav>
+  </div>
+</header>
+
+<% if (flash && flash.message) { %>
+  <div class="wrap">
+    <div class="flash flash-<%= flash.type === 'error' ? 'error' : 'success' %>"><%= flash.message %></div>
+  </div>
+<% } %>
