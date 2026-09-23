@@ -201,7 +201,7 @@ let clientModel = null;
 function getClientModel() {
   if (clientModel) return clientModel;
   if (!process.env.OPENROUTER_API_KEY) return null;
-  clientModel = process.env.OPENROUTER_MODEL || 'openai/gpt-4o';
+  clientModel = process.env.OPENROUTER_MODEL || 'inclusionai/ling-3.0-flash-vl';
   return clientModel;
 }
 
@@ -467,14 +467,18 @@ async function generateWithRetries(context) {
   const isFix = !!context.mode;
   let prompt = buildPrompt(context);
   let lastErrors = [];
+  let attemptsUsed = 0;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    attemptsUsed = attempt;
     let text;
     try {
       text = await callModel(prompt);
     } catch (err) {
       const msg = err.message || 'unknown';
       lastErrors.push(`api error: ${msg}`);
+      // Permanent credit/account errors should not be retried.
+      if (/insufficient credits|never purchased|purchase more credits/i.test(msg)) break;
       // 402 (credits / in-flight), 429 (rate limit) and 5xx are transient: wait and retry.
       if (!/402|429|5\d\d|in-flight|concurrent|overloaded|temporar/i.test(msg)) break;
       await sleep(1500 * attempt);
@@ -490,7 +494,8 @@ async function generateWithRetries(context) {
       + `Please return a corrected JSON object only.`;
   }
 
-  const err = new Error(`${isFix ? 'Redo' : 'Game generation'} failed after ${MAX_ATTEMPTS} attempts: ${lastErrors.join('; ')}`);
+  const err = new Error(`${isFix ? 'Redo' : 'Game generation'} failed after the first attempt: ${lastErrors.join('; ')}`);
+  if (attemptsUsed > 1) err.message = `${isFix ? 'Redo' : 'Game generation'} failed after ${attemptsUsed} attempts: ${lastErrors.join('; ')}`;
   err.code = 'GENERATION_FAILED';
   throw err;
 }
