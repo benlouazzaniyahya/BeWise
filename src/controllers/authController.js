@@ -51,6 +51,7 @@ function languageSave(req, res) {
 // ---------------------------------------------------------------------------
 function loginPage(req, res) {
   if (res.locals.user) return res.redirect(homeFor(res.locals.user.role));
+  if (res.locals.child) return res.redirect('/child');
   const t = tFor(res.locals.lang);
   res.render('auth/login', {
     page: 'login', titleKey: 'auth.loginTitle', next: req.query.next || '/home',
@@ -60,19 +61,25 @@ function loginPage(req, res) {
 
 function login(req, res) {
   const t = tFor(res.locals.lang);
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const identifier = String(req.body.identifier || '').trim();
   const password = String(req.body.password || '');
+  const next = req.body.next && req.body.next.startsWith('/') ? req.body.next : null;
 
-  const user = User.findByEmail(email);
-  if (!user || !user.password_hash || !bcrypt.compareSync(password, user.password_hash)) {
-    req.flash('error', t('auth.loginFailed'));
-    return res.redirect(`/login?next=${encodeURIComponent(req.body.next || '/home')}`);
+  const user = User.findByEmail(identifier.toLowerCase());
+  if (user && user.password_hash && bcrypt.compareSync(password, user.password_hash)) {
+    User.updateLanguage(user.id, res.locals.lang);
+    setAuthCookie(res, signUser(user));
+    return res.redirect(next || homeFor(user.role));
   }
 
-  User.updateLanguage(user.id, res.locals.lang);
-  setAuthCookie(res, signUser(user));
-  const next = req.body.next && req.body.next.startsWith('/') ? req.body.next : homeFor(user.role);
-  res.redirect(next);
+  const child = Child.findByLoginId(identifier);
+  if (child && child.password_hash && bcrypt.compareSync(password, child.password_hash)) {
+    setChildCookie(res, child.id);
+    return res.redirect(next || '/child');
+  }
+
+  req.flash('error', t('auth.loginFailed'));
+  res.redirect(`/login?next=${encodeURIComponent(req.body.next || '/home')}`);
 }
 
 function signupPage(req, res) {
@@ -142,7 +149,7 @@ async function googleCallback(req, res) {
 // ---------------------------------------------------------------------------
 // Child login (kid-friendly, child_id + password only)
 // ---------------------------------------------------------------------------
-function childLoginPage(req, res) {
+/*function childLoginPage(req, res) {
   if (res.locals.child) return res.redirect('/child');
   const t = tFor(res.locals.lang);
   res.render('auth/child-login', { page: 'childLogin', titleKey: 'childAuth.title' });
@@ -160,7 +167,7 @@ function childLogin(req, res) {
   }
   setChildCookie(res, child.id);
   res.redirect('/child');
-}
+}*/
 
 // ---------------------------------------------------------------------------
 // Logout
@@ -171,4 +178,4 @@ function logout(req, res) {
   res.redirect('/home');
 }
 
-module.exports = { home, homeForUser, languagePage, languageSave, loginPage, login, signupPage, signup, googleStart, googleCallback, childLoginPage, childLogin, logout };
+module.exports = { home, homeForUser, languagePage, languageSave, loginPage, login, signupPage, signup, googleStart, googleCallback, logout };

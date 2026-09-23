@@ -8,8 +8,8 @@
     <form action="/login" method="post" autocomplete="on">
       <input type="hidden" name="next" value="<%= next || '/home' %>">
       <div class="field">
-        <label for="email"><%= t('common.email') %></label>
-        <input id="email" name="email" type="email" required autofocus>
+        <label for="identifier"><%= t('auth.identifierLabel') %></label>
+        <input id="identifier" name="identifier" type="text" required autofocus>
       </div>
       <div class="field">
         <label for="password"><%= t('common.password') %></label>

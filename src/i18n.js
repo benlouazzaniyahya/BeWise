@@ -63,6 +63,7 @@ const STRINGS = {
 
     'auth.loginTitle': 'Sign in',
     'auth.loginSub': 'Teachers, parents and admins sign in here.',
+    'auth.identifierLabel': 'Email or child ID',
     'auth.roleTeacher': 'Teacher',
     'auth.roleParent': 'Parent',
     'auth.roleAdmin': 'Admin',
@@ -367,6 +368,7 @@ const STRINGS = {
 
     'auth.loginTitle': 'Connexion',
     'auth.loginSub': 'Enseignants, parents et administrateurs se connectent ici.',
+    'auth.identifierLabel': 'E-mail ou identifiant enfant',
     'auth.roleTeacher': 'Enseignant',
     'auth.roleParent': 'Parent',
     'auth.roleAdmin': 'Administrateur',
@@ -671,6 +673,7 @@ const STRINGS = {
 
     'auth.loginTitle': 'تسجيل الدخول',
     'auth.loginSub': 'المعلمون وأولياء الأمور والمشرفون يسجّلون الدخول هنا.',
+    'auth.identifierLabel': 'البريد الإلكتروني أو اسم مستخدم الطفل',
     'auth.roleTeacher': 'معلم',
     'auth.roleParent': 'ولي أمر',
     'auth.roleAdmin': 'مشرف',

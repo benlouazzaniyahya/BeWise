@@ -20,8 +20,8 @@ router.post('/signup', c.signup);
 router.get('/auth/google', c.googleStart);
 router.get('/auth/google/callback', c.googleCallback);
 
-router.get('/child-login', c.childLoginPage);
-router.post('/child-login', c.childLogin);
+// router.get('/child-login', c.childLoginPage);
+// router.post('/child-login', c.childLogin);
 
 router.post('/logout', c.logout);
 

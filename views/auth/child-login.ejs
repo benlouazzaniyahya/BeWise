@@ -1,4 +1,4 @@
-<%- include('../partials/head') %>
+<!--<%- include('../partials/head') %>
 <%- include('../partials/nav') %>
 <main class="wrap page">
   <div class="card child-card auth-card">
@@ -7,8 +7,8 @@
 
     <form action="/child-login" method="post">
       <div class="field">
-        <label for="child_login_id"><%= t('childAuth.loginId') %></label>
-        <input id="child_login_id" name="child_login_id" type="text" required autofocus>
+        <label for="identifier"><%= t('auth.identifierLabel') %></label>
+        <input id="identifier" name="identifier" type="text" required autofocus>
       </div>
       <div class="field">
         <label for="password"><%= t('childAuth.password') %></label>
