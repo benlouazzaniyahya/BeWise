@@ -23,16 +23,6 @@
   <div class="card">
     <h2><%= t('teacher.generateGames') %></h2>
     <form action="/teacher/lessons/<%= lesson.id %>/generate" method="post">
-      <div class="field">
-        <label><%= t('teacher.genderTheme') %></label>
-        <div class="radio-row">
-          <label class="radio"><input type="radio" name="genderTheme" value="neutral" checked> <%= t('teacher.neutral') %></label>
-          <label class="radio"><input type="radio" name="genderTheme" value="male"> <%= t('teacher.boys') %></label>
-          <label class="radio"><input type="radio" name="genderTheme" value="female"> <%= t('teacher.girls') %></label>
-          <label class="radio"><input type="radio" name="genderTheme" value="both"> <%= t('teacher.both') %></label>
-        </div>
-      </div>
-
       <div class="row-2">
         <div class="field">
           <label for="difficultyHint"><%= t('common.level') %> <%= t('adaptive.delegate') %></label>
@@ -79,12 +69,8 @@
           </select>
         </div>
         <div class="field">
-          <label for="triple-genderTheme"><%= t('teacher.genderTheme') %></label>
-          <select id="triple-genderTheme" name="genderTheme">
-            <option value="neutral"><%= t('teacher.neutral') %></option>
-            <option value="male"><%= t('teacher.boys') %></option>
-            <option value="female"><%= t('teacher.girls') %></option>
-          </select>
+          <label><%= t('teacher.forAllGenders') %></label>
+          <p class="hint"><%= t('teacher.forAllGendersHint') %></p>
         </div>
       </div>
       <div class="field">

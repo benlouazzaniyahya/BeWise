@@ -8,7 +8,7 @@
         <%= t('teacher.forSubject') %> <%= subject_label %> ·
         <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> ·
         <%= t('teacher.profile') %>: <%= profileLabel(variant) %> ·
-        <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[genderTheme]) %>
+        <%= t('teacher.forAllGenders') %>
       </p>
       <h1><%= t('teacher.tripleTitle') %> — <%= lesson.title %></h1>
       <p class="muted"><%= t('teacher.tripleSub') %></p>
@@ -107,12 +107,8 @@
           </select>
         </div>
         <div class="field">
-          <label for="triple-genderTheme"><%= t('teacher.genderTheme') %></label>
-          <select id="triple-genderTheme" name="genderTheme">
-            <% GENDERS.forEach(function(g) { %>
-              <option value="<%= g %>" <%= g === genderTheme ? 'selected' : '' %>><%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g]) %></option>
-            <% }); %>
-          </select>
+          <label><%= t('teacher.forAllGenders') %></label>
+          <p class="hint"><%= t('teacher.forAllGendersHint') %></p>
         </div>
       </div>
       <div class="field">

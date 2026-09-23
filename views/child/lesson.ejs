@@ -82,6 +82,8 @@
   questionTitle: t('game.plane.question'), done: t('game.tap.done'),
   hit: t('game.mole.hit'), caught: t('game.fruit.caught'),
   board: t('game.mole.board'), ouch: t('game.tap.wrong'), takeOff: t('game.plane.takeOff'),
+  stat: { gender: (child.gender === 'male' || child.gender === 'female') ? child.gender : '' },
+  style: child.gender === 'male' ? t('game.styleBoy') : child.gender === 'female' ? t('game.styleGirl') : '',
   templates: [
     { id: 'airplane', label: t('template.airplane') },
     { id: 'whack_a_mole', label: t('template.whack_a_mole') },

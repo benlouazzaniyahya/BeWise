@@ -295,6 +295,8 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 .chip-template {
   background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;
 }
+.chip-style-female { background: #fce7f3; color: #be185d; border: 1px solid #f9a8d4; }
+.chip-style-male { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
 .game-header-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
 .game-title { margin: 4px 0; font-size: 1.25rem; }
 .game-intro { font-size: 1.05rem; margin: 8px 0 14px; }
@@ -435,6 +437,11 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
   -webkit-user-select: none;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
+/* Gender style accents (girls / boys / neutral) — colours only, content is identical */
+.game-wrapper.style-female .game-header { border-top: 5px solid #ec4899; }
+.game-wrapper.style-female .canvas-shell canvas { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(236, 72, 153, 0.28); }
+.game-wrapper.style-male .game-header { border-top: 5px solid #3b82f6; }
+.game-wrapper.style-male .canvas-shell canvas { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 4px rgba(59, 130, 246, 0.28); }
 .game-status {
   display: flex;
   justify-content: space-between;

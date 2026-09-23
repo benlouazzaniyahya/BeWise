@@ -55,6 +55,35 @@
     takeOff: 'Vroom! The plane is flying…',
   };
 
+  // Visual "style" is chosen from the player's gender at play time. The game
+  // CONTENT never changes — only colours and accents (girl style / boy style /
+  // neutral). Teachers and unknown genders get the neutral look.
+  const GENDER_STYLES = {
+    female: {
+      plane: '#ec4899',
+      skyTop: '#fbcfe8', skyBottom: '#fdf2f8', ground: '#f472b6', groundEdge: '#f9a8d4',
+      mole: ['#f9a8d4', '#be185d'],
+      fruit: ['#831843', '#9d174d'],
+    },
+    male: {
+      plane: '#2563eb',
+      skyTop: '#7dd3fc', skyBottom: '#e0f2fe', ground: '#3b82f6', groundEdge: '#93c5fd',
+      mole: ['#60a5fa', '#1e40af'],
+      fruit: ['#172554', '#1e40af'],
+    },
+    neutral: {
+      plane: '#ef4444',
+      skyTop: '#7cc6f2', skyBottom: '#cfeeff', ground: '#8bc482', groundEdge: '#a7d09d',
+      mole: ['#76c276', '#2e6b3c'],
+      fruit: ['#12334f', '#1d4e6b'],
+    },
+  };
+
+  function genderStyle(ui) {
+    const st = (ui && ui.stat) || {};
+    return GENDER_STYLES[st.gender] || GENDER_STYLES.neutral;
+  }
+
   function header(game, ui) {
     const h = make('div', 'game-header');
     const meta = make('div', 'game-header-meta');
@@ -67,6 +96,10 @@
         if (found && found.label) label = found.label;
       }
       meta.appendChild(make('span', 'chip chip-template', label));
+    }
+    if (ui.style) {
+      const gend = ui.stat && ui.stat.gender;
+      meta.appendChild(make('span', 'chip chip-style' + (gend === 'female' || gend === 'male' ? '-' + gend : ''), ui.style));
     }
     h.appendChild(meta);
     if (game.title) h.appendChild(make('h2', 'game-title', game.title));
@@ -222,6 +255,7 @@
     let ended = false;
 
     const st = ui.stat || {};
+    const style = genderStyle(ui);
     const skyline = [];
     for (let i = 0; i < 8; i++) {
       skyline.push({ x: Math.random() * W, y: 60 + Math.random() * 300, r: 18 + Math.random() * 26, vx: 6 + Math.random() * 14 });
@@ -310,13 +344,13 @@
     function draw(dt) {
       // sky + ground
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#7cc6f2');
-      g.addColorStop(0.75, '#cfeeff');
+      g.addColorStop(0, style.skyTop);
+      g.addColorStop(0.75, style.skyBottom);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#8bc482';
+      ctx.fillStyle = style.ground;
       ctx.fillRect(0, H - 34, W, 34);
-      ctx.fillStyle = '#a7d09d';
+      ctx.fillStyle = style.groundEdge;
       ctx.fillRect(0, H - 34, W, 8);
 
       // decor clouds
@@ -337,7 +371,7 @@
       });
 
       // plane
-      drawPlane(plane.y, st.color || '#ef4444');
+      drawPlane(plane.y, st.color || style.plane);
       drawParticles(ctx, particles, dt);
     }
 
@@ -473,11 +507,12 @@
     }
 
     function draw(dt) {
-      ctx.fillStyle = '#3e8b4f';
+      const style = genderStyle(ui);
+      ctx.fillStyle = style.mole[0];
       ctx.fillRect(0, 0, W, H);
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#76c276');
-      g.addColorStop(1, '#2e6b3c');
+      g.addColorStop(0, style.mole[0]);
+      g.addColorStop(1, style.mole[1]);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
 
@@ -615,9 +650,10 @@
     }
 
     function draw(dt) {
+      const style = genderStyle(ui);
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#12334f');
-      g.addColorStop(1, '#1d4e6b');
+      g.addColorStop(0, style.fruit[0]);
+      g.addColorStop(1, style.fruit[1]);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
@@ -673,7 +709,8 @@
       return;
     }
 
-    const gameWrapper = make('div', 'game-wrapper theme-' + (game.template || 'default'));
+    const gend = opts.gender || (opts.ui && opts.ui.stat && opts.ui.stat.gender) || '';
+    const gameWrapper = make('div', 'game-wrapper theme-' + (game.template || 'default') + (gend === 'female' || gend === 'male' ? ' style-' + gend : ''));
     container.appendChild(gameWrapper);
 
     gameWrapper.appendChild(header(game, ui));
