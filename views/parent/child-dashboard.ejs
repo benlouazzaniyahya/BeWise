@@ -7,6 +7,7 @@
       <h1><%= child.display_name %></h1>
       <p class="muted small">
         <%= t(child.gender === 'male' ? 'parent.male' : 'parent.female') %> · <%= child.age %> <%= t('parent.age') %> ·
+        <span class="chip chip-school"><%= gradeLabel(child.school_level || 'cp') %></span> ·
         <%= t(child.profile_type === 'special_needs' ? 'parent.profileSpecial' : 'parent.profileStandard') %>
         · <%= {en:'English',fr:'Français',ar:'العربية'}[child.language] %>
       </p>

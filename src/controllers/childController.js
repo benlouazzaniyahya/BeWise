@@ -19,7 +19,10 @@ function forbidden(res) {
 // ---------------------------------------------------------------------------
 function computeLessonMap(child) {
   const subjects = Subject.list();
-  const lessons = Lesson.listWithSubject();
+  const grade = child.school_level;
+  const lessons = grade
+    ? Lesson.listWithSubject().filter((l) => (l.school_level || null) === grade)
+    : Lesson.listWithSubject();
   const progress = Progress.listForChild(child.id);
   const progMap = {};
   for (const p of progress) progMap[p.lesson_id] = p;

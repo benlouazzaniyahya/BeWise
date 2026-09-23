@@ -18,6 +18,7 @@
       <div class="card lesson-card">
         <div class="lesson-card-head">
           <span class="chip chip-green"><%= t(c.gender === 'male' ? 'parent.male' : 'parent.female') %> · <%= c.age %></span>
+          <span class="chip chip-school"><%= gradeLabel(c.school_level || 'cp') %></span>
           <span class="chip chip-subject"><%= t(c.profile_type === 'special_needs' ? 'parent.profileSpecial' : 'parent.profileStandard') %></span>
         </div>
         <h3><%= c.display_name %></h3>

@@ -23,17 +23,31 @@
           </select>
         </div>
         <div class="field">
-          <label for="level"><%= t('common.level') %> (1-5)</label>
-          <input id="level" name="level" type="number" min="1" max="5" value="<%= lesson ? lesson.level : 1 %>">
+          <label for="school_level"><%= t('school.title') %></label>
+          <select id="school_level" name="school_level">
+            <% var selGrade = lesson ? (lesson.school_level || defaultGrade) : defaultGrade; %>
+            <% SCHOOL_LEVELS.forEach(function(g){ %>
+              <option value="<%= g.code %>" <%= selGrade === g.code ? 'selected' : '' %>><%= gradeLabel(g.code) %></option>
+            <% }); %>
+          </select>
+          <p class="hint"><%= t('school.lessonHint') %></p>
         </div>
       </div>
 
       <div class="row-2">
         <div class="field">
+          <label for="level"><%= t('common.level') %> (1-5)</label>
+          <input id="level" name="level" type="number" min="1" max="5" readonly value="<%= gradeInfo((lesson ? (lesson.school_level || defaultGrade) : defaultGrade)).level %>">
+          <p class="hint"><%= t('school.derivedHint') %></p>
+        </div>
+        <div class="field">
           <label for="target_score"><%= t('teacher.targetScore') %></label>
           <input id="target_score" name="target_score" type="number" min="1" max="100" value="<%= lesson ? lesson.target_score : 60 %>">
           <p class="hint"><%= t('teacher.targetScoreHint') %></p>
         </div>
+      </div>
+
+      <div class="row-2">
         <div class="field">
           <label for="order_index"><%= t('teacher.orderIndex') %></label>
           <input id="order_index" name="order_index" type="number" value="<%= lesson ? lesson.order_index : 0 %>">
@@ -49,4 +63,14 @@
     </form>
   </div>
 </main>
+<script>
+  (function(){
+    var map = {cp:1, ce1:2, ce2:2, cm1:3, cm2:3, sixieme:4};
+    var sel = document.getElementById('school_level');
+    var lvl = document.getElementById('level');
+    if (!sel || !lvl) return;
+    function sync(){ lvl.value = map[sel.value] || 1; }
+    sel.addEventListener('change', sync);
+  })();
+</script>
 <%- include('../partials/foot') %>

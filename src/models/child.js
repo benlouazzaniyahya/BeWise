@@ -14,18 +14,18 @@ const listAllWithParentEmail = () =>
     'SELECT c.*, u.email AS parent_email FROM children c JOIN users u ON u.id = c.parent_id ORDER BY c.id DESC',
   );
 
-function create({ parentId, loginId, passwordHash, displayName, age, gender, profileType, language, created_at }) {
+function create({ parentId, loginId, passwordHash, displayName, age, gender, profileType, language, schoolLevel, created_at }) {
   const info = run(
-    'INSERT INTO children (parent_id, child_login_id, password_hash, display_name, age, gender, profile_type, language, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    parentId, loginId, passwordHash, displayName, age, gender, profileType, language, created_at,
+    'INSERT INTO children (parent_id, child_login_id, password_hash, display_name, age, gender, profile_type, language, school_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    parentId, loginId, passwordHash, displayName, age, gender, profileType, language, schoolLevel, created_at,
   );
   return info.lastInsertRowid;
 }
 
-const update = (id, { displayName, age, gender, profileType, language }) =>
+const update = (id, { displayName, age, gender, profileType, language, schoolLevel }) =>
   run(
-    'UPDATE children SET display_name = ?, age = ?, gender = ?, profile_type = ?, language = ? WHERE id = ?',
-    displayName, age, gender, profileType, language, id,
+    'UPDATE children SET display_name = ?, age = ?, gender = ?, profile_type = ?, language = ?, school_level = ? WHERE id = ?',
+    displayName, age, gender, profileType, language, schoolLevel, id,
   );
 
 const updatePassword = (id, passwordHash) =>

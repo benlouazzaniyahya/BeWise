@@ -57,6 +57,17 @@ const STRINGS = {
     'common.notFound': 'Page not found',
     'common.error': 'Something went wrong',
 
+    'school.title': 'School level',
+    'school.childHint': 'The class the child is in. The lesson map only shows lessons for this level.',
+    'school.lessonHint': 'Which class this lesson is meant for. Difficulty is derived automatically.',
+    'school.derivedHint': 'Auto-computed from the school level above.',
+    'grade.cp': 'CP (age 6-7)',
+    'grade.ce1': 'CE1 (age 7-8)',
+    'grade.ce2': 'CE2 (age 8-9)',
+    'grade.cm1': 'CM1 (age 9-10)',
+    'grade.cm2': 'CM2 (age 10-11)',
+    'grade.sixieme': '6ème (age 11-12)',
+
     'lang.pickerTitle': 'Choose your language',
     'lang.pickerSub': 'Bewize speaks English, French and Arabic. Pick one to get started.',
     'lang.change': 'Change language',
@@ -361,6 +372,17 @@ const STRINGS = {
     'common.notFound': 'Page introuvable',
     'common.error': 'Une erreur est survenue',
 
+    'school.title': 'Niveau scolaire',
+    'school.childHint': 'La classe dans laquelle est l’enfant. La carte des leçons n’affiche que les leçons de ce niveau.',
+    'school.lessonHint': 'La classe à laquelle cette leçon est destinée. La difficulté est dérivée automatiquement.',
+    'school.derivedHint': 'Calculé automatiquement d’après le niveau scolaire ci-dessus.',
+    'grade.cp': 'CP (6-7 ans)',
+    'grade.ce1': 'CE1 (7-8 ans)',
+    'grade.ce2': 'CE2 (8-9 ans)',
+    'grade.cm1': 'CM1 (9-10 ans)',
+    'grade.cm2': 'CM2 (10-11 ans)',
+    'grade.sixieme': '6ème (11-12 ans)',
+
     'lang.pickerTitle': 'Choisissez votre langue',
     'lang.pickerSub': 'Bewize parle anglais, français et arabe. Choisissez pour commencer.',
     'lang.change': 'Changer de langue',
@@ -664,6 +686,17 @@ const STRINGS = {
     'common.yes': 'نعم',
     'common.notFound': 'الصفحة غير موجودة',
     'common.error': 'حدث خطأ ما',
+
+    'school.title': 'المستوى الدراسي',
+    'school.childHint': 'الفصل الذي يدرسه الطفل. خريطة الدروس تعرض فقط دروس هذا المستوى.',
+    'school.lessonHint': 'الفصل الذي صُمم هذا الدرس له. مستوى الصعوبة يُشتق تلقائياً.',
+    'school.derivedHint': 'يُحسب تلقائياً من المستوى الدراسي أعلاه.',
+    'grade.cp': 'التحضيري (6-7)',
+    'grade.ce1': 'الأول ابتدائي (7-8)',
+    'grade.ce2': 'الثاني ابتدائي (8-9)',
+    'grade.cm1': 'الثالث ابتدائي (9-10)',
+    'grade.cm2': 'الرابع ابتدائي (10-11)',
+    'grade.sixieme': 'السادس (11-12)',
 
     'lang.pickerTitle': 'اختر لغتك',
     'lang.pickerSub': 'يتحدث بيويز الإنجليزية والفرنسية والعربية. اختر لتبدأ.',
@@ -975,4 +1008,29 @@ function levelBand(level) {
   return bands[Math.min(Math.max(level - 1, 0), 4)];
 }
 
-module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, levelBand };
+// French school levels (CP → 6ème) mapped to lesson difficulty levels (+∞ age band).
+const SCHOOL_LEVELS = [
+  { code: 'cp', level: 1, ageMin: 6, ageMax: 7 },
+  { code: 'ce1', level: 2, ageMin: 7, ageMax: 8 },
+  { code: 'ce2', level: 2, ageMin: 8, ageMax: 9 },
+  { code: 'cm1', level: 3, ageMin: 9, ageMax: 10 },
+  { code: 'cm2', level: 3, ageMin: 10, ageMax: 11 },
+  { code: 'sixieme', level: 4, ageMin: 11, ageMax: 12 },
+];
+
+function gradeInfo(code) {
+  return SCHOOL_LEVELS.find((s) => s.code === code) || null;
+}
+
+function gradeForAge(ageStr) {
+  const a = Math.min(18, Math.max(3, Math.floor(Number(ageStr) || 6)));
+  const hit = SCHOOL_LEVELS.find((s) => a >= s.ageMin && a <= s.ageMax);
+  if (hit) return hit;
+  return a < 6 ? SCHOOL_LEVELS[0] : SCHOOL_LEVELS[SCHOOL_LEVELS.length - 1];
+}
+
+function gradeLabel(lang, code) {
+  return translate(lang, `grade.${code}`, undefined);
+}
+
+module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, levelBand, SCHOOL_LEVELS, gradeInfo, gradeForAge, gradeLabel };

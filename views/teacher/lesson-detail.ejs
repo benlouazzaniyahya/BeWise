@@ -4,7 +4,7 @@
 <main class="wrap page">
   <div class="page-head">
     <div>
-      <p class="muted small"><%= t('teacher.forSubject') %> <%= subject_label %> · <%= t('common.level') %> <%= lesson.level %> · <%= t('common.score') %> ≥ <%= lesson.target_score %>%</p>
+      <p class="muted small"><%= t('teacher.forSubject') %> <%= subject_label %> · <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> · <%= t('common.level') %> <%= lesson.level %> · <%= t('common.score') %> ≥ <%= lesson.target_score %>%</p>
       <h1><%= lesson.title %></h1>
     </div>
     <div>

@@ -2,7 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 const { Child, Subject, Lesson, Progress, Badge, Attempt } = require('../models');
-const { tFor, subjectLabel, LANGS } = require('../i18n');
+const { tFor, subjectLabel, LANGS, gradeInfo, gradeForAge } = require('../i18n');
 const { computeLearningSpeed, speedLabelKey } = require('../services/adaptive');
 
 const NAME_RE = /[^\p{L}\p{N}\s'\-]/u;
@@ -20,6 +20,7 @@ function childFormValues(req, child) {
     gender: child ? child.gender : ['male', 'female'].includes(req.body.gender) ? req.body.gender : 'male',
     profile_type: child ? child.profile_type : ['standard', 'special_needs'].includes(req.body.profile_type) ? req.body.profile_type : 'standard',
     language: child ? child.language : LANGS.includes(req.body.language) ? req.body.language : res.locals.lang,
+    school_level: gradeInfo(req.body.school_level) ? req.body.school_level : gradeForAge(child ? child.age : req.body.age).code,
     child_login_id: child ? child.child_login_id : String(req.body.child_login_id || '').trim(),
     password: String(req.body.password || ''),
   };
@@ -76,7 +77,7 @@ function index(req, res) {
 // ---------------------------------------------------------------------------
 function childNew(req, res) {
   const t = tFor(res.locals.lang);
-  res.render('parent/child-form', { page: 'parent', titleKey: 'parent.addChild', child: null, t, LANGS });
+  res.render('parent/child-form', { page: 'parent', titleKey: 'parent.addChild', child: null, t, LANGS, defaultGrade: gradeForAge(7).code });
 }
 
 function childCreate(req, res) {
@@ -109,6 +110,7 @@ function childCreate(req, res) {
     gender: v.gender,
     profileType: v.profile_type,
     language: v.language,
+    schoolLevel: v.school_level,
     created_at: localNow(),
   });
   req.flash('success', `${t('parent.childCreated')} · ${t('childAuth.loginId')}: ${loginId}`);
@@ -119,7 +121,7 @@ function childEdit(req, res) {
   const t = tFor(res.locals.lang);
   const child = ownChild(req, res);
   if (!child) return notFound(res);
-  res.render('parent/child-form', { page: 'parent', titleKey: 'parent.editChild', child, t, LANGS });
+  res.render('parent/child-form', { page: 'parent', titleKey: 'parent.editChild', child, t, LANGS, defaultGrade: child.school_level || gradeForAge(child.age).code });
 }
 
 function childUpdate(req, res) {
@@ -131,10 +133,11 @@ function childUpdate(req, res) {
   const gender = ['male', 'female'].includes(req.body.gender) ? req.body.gender : child.gender;
   const profile_type = ['standard', 'special_needs'].includes(req.body.profile_type) ? req.body.profile_type : child.profile_type;
   const language = LANGS.includes(req.body.language) ? req.body.language : child.language;
+  const school_level = gradeInfo(req.body.school_level) ? req.body.school_level : (child.school_level || gradeForAge(age).code);
   if (!display_name || NAME_RE.test(display_name) || !Number.isInteger(age) || age < 3 || age > 18) {
     return bad(req, res, t('common.error'), `/parent/children/${child.id}/edit`);
   }
-  Child.update(child.id, { displayName: display_name, age, gender, profileType: profile_type, language });
+  Child.update(child.id, { displayName: display_name, age, gender, profileType: profile_type, language, schoolLevel: school_level });
   req.flash('success', t('parent.childUpdated'));
   res.redirect(`/parent/children/${child.id}`);
 }

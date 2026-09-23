@@ -21,18 +21,18 @@ const listWithSubject = () =>
   );
 const countAll = () => get('SELECT COUNT(*) AS n FROM lessons').n;
 
-function create({ subjectId, teacherId, title, rawLessonText, level, targetScore, orderIndex, created_at }) {
+function create({ subjectId, teacherId, title, rawLessonText, level, targetScore, orderIndex, schoolLevel, created_at }) {
   const info = run(
-    'INSERT INTO lessons (subject_id, teacher_id, title, raw_lesson_text, level, target_score, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    subjectId, teacherId, title, rawLessonText, level, targetScore, orderIndex, created_at,
+    'INSERT INTO lessons (subject_id, teacher_id, title, raw_lesson_text, level, target_score, order_index, school_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    subjectId, teacherId, title, rawLessonText, level, targetScore, orderIndex, schoolLevel, created_at,
   );
   return info.lastInsertRowid;
 }
 
-const update = (id, { title, rawLessonText, subjectId, level, targetScore, orderIndex }) =>
+const update = (id, { title, rawLessonText, subjectId, level, targetScore, orderIndex, schoolLevel }) =>
   run(
-    'UPDATE lessons SET title = ?, raw_lesson_text = ?, subject_id = ?, level = ?, target_score = ?, order_index = ? WHERE id = ?',
-    title, rawLessonText, subjectId, level, targetScore, orderIndex, id,
+    'UPDATE lessons SET title = ?, raw_lesson_text = ?, subject_id = ?, level = ?, target_score = ?, order_index = ?, school_level = ? WHERE id = ?',
+    title, rawLessonText, subjectId, level, targetScore, orderIndex, schoolLevel, id,
   );
 
 const deleteById = (id) => run('DELETE FROM lessons WHERE id = ?', id);

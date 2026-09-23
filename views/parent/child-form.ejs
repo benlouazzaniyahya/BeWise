@@ -31,6 +31,17 @@
         </div>
       </div>
 
+      <div class="field">
+        <label for="school_level"><%= t('school.title') %></label>
+        <select id="school_level" name="school_level">
+          <% var selGrade = child ? (child.school_level || defaultGrade) : defaultGrade; %>
+          <% SCHOOL_LEVELS.forEach(function(g){ %>
+            <option value="<%= g.code %>" <%= selGrade === g.code ? 'selected' : '' %>><%= gradeLabel(g.code) %></option>
+          <% }); %>
+        </select>
+        <p class="hint"><%= t('school.childHint') %></p>
+      </div>
+
       <div class="row-2">
         <div class="field">
           <label for="profile_type"><%= t('parent.profileType') %></label>

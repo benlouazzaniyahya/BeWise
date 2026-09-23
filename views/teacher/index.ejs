@@ -14,6 +14,7 @@
     <% lessons.forEach(function(l){ %>
       <div class="card lesson-card">
         <div class="lesson-card-head">
+          <span class="chip chip-school"><%= gradeLabel(l.school_level || 'cp') %></span>
           <span class="chip chip-subject"><%= l.subject_label %></span>
           <span class="small muted">Lv <%= l.level %> · <%= t('common.score') %> ≥ <%= l.target_score %>%</span>
         </div>

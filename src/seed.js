@@ -24,26 +24,32 @@ function ensureUser(role, email, password, language) {
   return u;
 }
 
-function ensureChild(parentId, loginId, password, displayName, age, gender, profileType, language) {
+function ensureChild(parentId, loginId, password, displayName, age, gender, profileType, language, schoolLevel) {
   let c = get('SELECT * FROM children WHERE child_login_id = ?', loginId);
   if (!c) {
     const info = run(
-      'INSERT INTO children (parent_id, child_login_id, password_hash, display_name, age, gender, profile_type, language, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      parentId, loginId, hash(password), displayName, age, gender, profileType, language, now(),
+      'INSERT INTO children (parent_id, child_login_id, password_hash, display_name, age, gender, profile_type, language, school_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      parentId, loginId, hash(password), displayName, age, gender, profileType, language, schoolLevel, now(),
     );
     c = get('SELECT * FROM children WHERE id = ?', info.lastInsertRowid);
+  } else if (c.school_level !== schoolLevel) {
+    run('UPDATE children SET school_level = ? WHERE id = ?', schoolLevel, c.id);
+    c = get('SELECT * FROM children WHERE id = ?', c.id);
   }
   return c;
 }
 
-function getOrCreateLesson(teacherId, subjectId, title, content, level, target, orderIndex) {
+function getOrCreateLesson(teacherId, subjectId, title, content, level, target, orderIndex, schoolLevel) {
   let l = get('SELECT * FROM lessons WHERE teacher_id = ? AND subject_id = ? AND title = ?', teacherId, subjectId, title);
   if (!l) {
     const info = run(
-      'INSERT INTO lessons (subject_id, teacher_id, title, raw_lesson_text, level, target_score, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      subjectId, teacherId, title, content, level, target, orderIndex, now(),
+      'INSERT INTO lessons (subject_id, teacher_id, title, raw_lesson_text, level, target_score, order_index, school_level, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      subjectId, teacherId, title, content, level, target, orderIndex, schoolLevel, now(),
     );
     l = get('SELECT * FROM lessons WHERE id = ?', info.lastInsertRowid);
+  } else if (l.school_level !== schoolLevel) {
+    run('UPDATE lessons SET school_level = ?, level = ? WHERE id = ?', schoolLevel, level, l.id);
+    l = get('SELECT * FROM lessons WHERE id = ?', l.id);
   }
   return l;
 }
@@ -68,9 +74,9 @@ function main() {
     const parent2 = ensureUser('parent', 'parent2@home.test', 'parent123', 'fr');
 
     // ---- children ---------------------------------------------------------
-    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 7, 'male', 'standard', 'ar');
-    ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'standard', 'en');
-    ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'special_needs', 'fr');
+    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 7, 'male', 'standard', 'ar', 'cp');
+    ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'standard', 'en', 'cm1');
+    ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'special_needs', 'fr', 'ce1');
 
     // ---- lessons ----------------------------------------------------------
     const l1 = getOrCreateLesson(teacher1.id, subjects.math, 'Numbers and Counting 1–10', [
@@ -78,32 +84,39 @@ function main() {
       'Counting tells us how many things there are.',
       'We can count stars, fingers, toys, and steps.',
       'Now let us practise counting with the number game.',
-    ].join(' '), 1, 50, 1);
+    ].join(' '), 1, 50, 1, 'cp');
 
     const l2 = getOrCreateLesson(teacher1.id, subjects.math, 'Shapes around us', [
       'Shapes are everywhere: a circle is round like a ball.',
       'A square has 4 equal sides. A triangle has 3 sides.',
       'A rectangle has 2 long sides and 2 short sides.',
       'Find shapes all around you before playing the game.',
-    ].join(' '), 1, 60, 2);
+    ].join(' '), 1, 60, 2, 'cp');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Animals and their babies', [
       'A dog has puppies, a cat has kittens, and a cow has calves.',
       'A hen has chicks. Many animal babies look like tiny versions of their parents.',
       'Learn the names of baby animals and play the match game.',
-    ].join(' '), 1, 60, 1);
+    ].join(' '), 1, 60, 1, 'cp');
 
     getOrCreateLesson(teacher2.id, subjects.arabic, 'أيام الأسبوع', [
       'أيام الأسبوع سبعة أيام: السبت، الأحد، الاثنين، الثلاثاء، الأربعاء، الخميس، الجمعة.',
       'نبدأ الأسبوع يوم السبت وننهيه يوم الجمعة.',
       'مقال عن أيام الأسبوع مع لعبة ترتيب الكلمات.',
-    ].join(' '), 1, 60, 1);
+    ].join(' '), 1, 60, 1, 'cp');
 
     getOrCreateLesson(teacher2.id, subjects.french, 'Les couleurs', [
       'Les couleurs : rouge, bleu, vert, jaune, orange, violet, noir et blanc.',
       'Le ciel est bleu, la pomme est rouge et l’herbe est verte.',
       'Retrouve les couleurs que tu connais dans le jeu de vocabulaire.',
-    ].join(' '), 2, 60, 1);
+    ].join(' '), 2, 60, 1, 'ce1');
+
+    const lReading = getOrCreateLesson(teacher1.id, subjects.english, 'Reading: My school day', [
+      "Every day I get up at seven o'clock. I wash my face, eat breakfast and put on my school bag.",
+      'My school starts at eight. We read, we count and we play.',
+      'At noon I eat lunch with my friends. After school I do my homework, then I play outside.',
+      'Read the text and answer the questions in the game.',
+    ].join(' '), 3, 60, 2, 'cm1');
 
     // ---- pre-approved games for lesson 1 (playable immediately) -----------
     const mathLessonId = l1.id;
@@ -147,6 +160,29 @@ function main() {
           'seeded demo game', now(), now(), teacher1.id,
         );
       }
+    }
+
+    // ---- pre-approved game for the CM1 reading lesson (sara can play) -----
+    const readingQuiz = {
+      type: 'quiz',
+      instructions: 'Read the text “My school day” again, then answer these questions!',
+      items: [
+        { points: 15, question: 'What time does the child get up?', options: ["At seven o'clock", 'At noon', 'After school'], correctIndex: 0, feedback: 'The text says the child gets up at seven.' },
+        { points: 15, question: 'When does school start?', options: ['At ten', 'At eight', 'At six'], correctIndex: 1, feedback: 'School starts at eight.' },
+        { points: 15, question: 'What do they do at school?', options: ['Fly', 'Sleep', 'Read, count and play'], correctIndex: 2, feedback: 'They read, count and play at school.' },
+        { points: 15, question: 'When does the child do homework?', options: ['Before breakfast', 'After school', 'At midnight'], correctIndex: 1, feedback: 'After school the child does homework, then plays outside.' },
+      ],
+      theme: 'School',
+    };
+    const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'standard' AND gender_theme = 'neutral' AND status = 'approved'", lReading.id);
+    if (!readEx) {
+      run(
+        `INSERT INTO games (lesson_id, variant, gender_theme, status, template_type, game_json, static_version_json, notes, created_at, approved_at, approved_by)
+         VALUES (?, 'standard', 'neutral', 'approved', ?, ?, ?, ?, ?, ?, ?)`,
+        lReading.id, readingQuiz.type,
+        JSON.stringify(readingQuiz), JSON.stringify(deriveStaticVersion(readingQuiz)),
+        'seeded demo game', now(), now(), teacher1.id,
+      );
     }
 
     console.log('√ Bewize seeded.');

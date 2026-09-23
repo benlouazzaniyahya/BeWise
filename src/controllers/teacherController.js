@@ -1,13 +1,12 @@
 'use strict';
 
 const { Subject, Lesson, Game, Job } = require('../models');
-const { tFor, subjectLabel } = require('../i18n');
+const { tFor, subjectLabel, gradeInfo } = require('../i18n');
 const ai = require('../services/ai');
 const generator = require('../services/generator');
 const { suggestLevelForSubject } = require('../services/adaptive');
 
 const { GENDERS, VARIANTS } = generator;
-const clampLevel = (n) => Math.min(5, Math.max(1, n));
 const clampTarget = (n) => Math.min(100, Math.max(1, n));
 const localNow = () => new Date().toISOString();
 
@@ -45,15 +44,21 @@ function lessonsList(req, res) {
 function lessonNew(req, res) {
   const t = tFor(res.locals.lang);
   const subjects = Subject.list().map((s) => ({ ...s, label: subjectLabel(res.locals.lang, s.name) }));
-  res.render('teacher/lesson-form', { page: 'teacher', titleKey: 'teacher.newLesson', lesson: null, subjects, t });
+  res.render('teacher/lesson-form', { page: 'teacher', titleKey: 'teacher.newLesson', lesson: null, subjects, t, defaultGrade: 'cp' });
 }
+
+const gradeFromBody = (body, fallback) => {
+  const info = gradeInfo(String(body.school_level || ''));
+  return info ? info.code : fallback;
+};
 
 function lessonCreate(req, res) {
   const t = tFor(res.locals.lang);
   const title = String(req.body.title || '').trim();
   const raw = String(req.body.raw_lesson_text || '').trim();
   const subjectId = Number(req.body.subject_id);
-  const level = clampLevel(Number(req.body.level) || 1);
+  const schoolLevel = gradeFromBody(req.body, 'cp');
+  const level = gradeInfo(schoolLevel).level;
   const target = clampTarget(Number(req.body.target_score) || 60);
 
   if (!title || !raw || !Subject.findById(subjectId)) {
@@ -68,6 +73,7 @@ function lessonCreate(req, res) {
     level,
     targetScore: target,
     orderIndex: Number(req.body.order_index) || 0,
+    schoolLevel,
     created_at: localNow(),
   });
   req.flash('success', t('teacher.lessonCreated'));
@@ -91,27 +97,27 @@ function lessonShow(req, res) {
   });
 }
 
-const JobList = (lessonId) => require('../models').Job.listByLesson(lessonId);
-
 function lessonEdit(req, res) {
   const t = tFor(res.locals.lang);
   const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
   if (!lesson) return notFound(res);
   const subjects = Subject.list().map((s) => ({ ...s, label: subjectLabel(res.locals.lang, s.name) }));
-  res.render('teacher/lesson-form', { page: 'teacher', titleKey: 'teacher.editLesson', lesson, subjects, t });
+  res.render('teacher/lesson-form', { page: 'teacher', titleKey: 'teacher.editLesson', lesson, subjects, t, defaultGrade: lesson.school_level || 'cp' });
 }
 
 function lessonUpdate(req, res) {
   const t = tFor(res.locals.lang);
   const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
   if (!lesson) return notFound(res);
+  const schoolLevel = gradeFromBody(req.body, lesson.school_level || 'cp');
   Lesson.update(lesson.id, {
     title: String(req.body.title || '').trim() || lesson.title,
     rawLessonText: String(req.body.raw_lesson_text || '').trim() || lesson.raw_lesson_text,
     subjectId: Number(req.body.subject_id) || lesson.subject_id,
-    level: clampLevel(Number(req.body.level) || lesson.level),
+    level: gradeInfo(schoolLevel).level,
     targetScore: clampTarget(Number(req.body.target_score) || lesson.target_score),
     orderIndex: Number(req.body.order_index) ?? lesson.order_index,
+    schoolLevel,
   });
   req.flash('success', t('teacher.lessonUpdated'));
   res.redirect(`/teacher/lessons/${lesson.id}`);

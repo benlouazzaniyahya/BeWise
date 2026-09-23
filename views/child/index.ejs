@@ -1,7 +1,9 @@
 <%- include('../partials/head') %>
 <%- include('../partials/nav') %>
 <main class="wrap page">
-  <h1><%= t('child.welcome') %>, <%= child.display_name %>! <%= t('child.lessonMap') %></h1>
+  <h1><%= t('child.welcome') %>, <%= child.display_name %>! <%= t('child.lessonMap') %>
+    <span class="chip chip-subject"><%= t('school.title') %>: <%= gradeLabel(child.school_level || 'cp') %></span>
+  </h1>
 
   <% if (!bySubject.length) { %>
     <div class="card empty"><%= t('child.noLessons') %></div>
