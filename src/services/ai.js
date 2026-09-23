@@ -27,7 +27,7 @@ const SYSTEM_PROMPT = 'You are a careful author of educational mini-games for ch
 // ---------------------------------------------------------------------------
 const URL_RE = /(https?:\/\/|www\.)[^\s]+/i;
 const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
-const PHONE_RE = /(\+?\d[\d\s().-]{6,}\d)/;
+const PHONE_RE = /(?:\+\d[\d\s().-]{5,}\d|\b\d{3}[-. ]\d{3}[-. ]\d{4}\b|\b\(\d{3}\)\s*\d{3}[-. ]\d{4}\b)/;
 
 const BLOCKED_TOKENS = [
   // english
@@ -405,6 +405,8 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
 // ---------------------------------------------------------------------------
 // Public: generate one game for a lesson + profile/gender combination
 // ---------------------------------------------------------------------------
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function generateOne({ lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint }) {
   const context = { lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint };
 
@@ -423,8 +425,13 @@ async function generateOne({ lesson, subjectName, variant, genderTheme, lang, ex
     try {
       text = await callModel(prompt);
     } catch (err) {
-      lastErrors.push(`api error: ${err.message || 'unknown'}`);
-      break;
+      const msg = err.message || 'unknown';
+      lastErrors.push(`api error: ${msg}`);
+      // 402 (credits / in-flight), 429 (rate limit) and 5xx are transient: wait and retry.
+      if (!/402|429|5\d\d|in-flight|concurrent|overloaded|temporar/i.test(msg)) break;
+      await sleep(1500 * attempt);
+      prompt = buildPrompt(context);
+      continue;
     }
     const parsed = extractJson(text);
     const validation = validateGameJson(parsed, lang);

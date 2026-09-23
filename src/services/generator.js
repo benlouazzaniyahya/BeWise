@@ -52,11 +52,16 @@ async function processJob(job) {
   }
 }
 
+// Run jobs one at a time so AI requests stay sequential: OpenRouter rejects
+// concurrent bursts ("would exceed your available credits given your current
+// in-flight requests"), and single calls succeed.
+let chain = Promise.resolve();
+
 function dispatch(lessonId, specs) {
   for (const spec of specs) {
     const id = Job.create(lessonId, 'generate', JSON.stringify(spec));
     const job = Job.findById(id);
-    processJob(job); // fire and forget
+    chain = chain.then(() => processJob(job));
   }
 }
 
