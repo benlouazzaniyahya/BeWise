@@ -77,7 +77,7 @@
     <% games.forEach(function(g){ %>
       <div class="game-row">
         <div class="game-row-meta">
-          <strong><%= t(g.variant === 'special_needs' ? 'teacher.variantSpecial' : 'teacher.variantStandard') %></strong>
+          <strong><%= profileLabel(g.variant) %></strong>
           ·
           <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g.gender_theme]) %>
           <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %></span>

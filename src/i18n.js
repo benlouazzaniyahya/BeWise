@@ -148,15 +148,16 @@ const STRINGS = {
     'teacher.noLessons': 'No lessons yet. Create your first lesson.',
     'teacher.gamesTitle': 'Games for this lesson',
     'teacher.generateGames': 'Generate games',
-    'teacher.generateHint': 'One click generates both a standard and a special-needs version of the game, for the gender theme(s) you pick below.',
+    'teacher.generateHint': 'One click generates one game per learning profile (normal, autism, hearing impairment), for the gender theme(s) you pick below.',
     'teacher.regenerateHint': 'Regenerates the game from scratch with your extra instructions.',
     'teacher.genderTheme': 'Gender theme',
     'teacher.neutral': 'Neutral',
     'teacher.boys': 'Boys',
     'teacher.girls': 'Girls',
     'teacher.both': 'Boys + Girls',
-    'teacher.variantStandard': 'Standard',
-    'teacher.variantSpecial': 'Special needs',
+    'teacher.variantNormal': 'Normal',
+    'teacher.variantAutism': 'Autism',
+    'teacher.variantHearing': 'Hearing impairment',
     'teacher.statusDraft': 'Draft',
     'teacher.statusPending': 'Awaiting review',
     'teacher.statusApproved': 'Published',
@@ -273,8 +274,9 @@ const STRINGS = {
     'parent.male': 'Boy',
     'parent.female': 'Girl',
     'parent.profileType': 'Learning profile',
-    'parent.profileStandard': 'Standard',
-    'parent.profileSpecial': 'Special needs',
+    'parent.profileNormal': 'Normal',
+    'parent.profileAutism': 'Autism',
+    'parent.profileHearing': 'Hearing impairment',
     'parent.childLanguage': 'App language',
     'parent.loginId': 'Child login id',
     'parent.loginIdAuto': 'Leave empty to generate one automatically.',
@@ -465,15 +467,16 @@ const STRINGS = {
     'teacher.noLessons': 'Aucune leçon. Créez votre première leçon.',
     'teacher.gamesTitle': 'Jeux de cette leçon',
     'teacher.generateGames': 'Générer les jeux',
-    'teacher.generateHint': 'Un clic génère une version standard et une version « besoins spéciaux », pour le(s) thème(s) choisi(s) ci-dessous.',
+    'teacher.generateHint': 'Un clic génère un jeu par profil d’apprentissage (normale, autisme, déficience auditive), pour le(s) thème(s) choisi(s) ci-dessous.',
     'teacher.regenerateHint': 'Régénère le jeu depuis zéro avec vos instructions supplémentaires.',
     'teacher.genderTheme': 'Thème par genre',
     'teacher.neutral': 'Neutre',
     'teacher.boys': 'Garçons',
     'teacher.girls': 'Filles',
     'teacher.both': 'Garçons + Filles',
-    'teacher.variantStandard': 'Standard',
-    'teacher.variantSpecial': 'Besoins spéciaux',
+    'teacher.variantNormal': 'Normal',
+    'teacher.variantAutism': 'Autisme',
+    'teacher.variantHearing': 'Déficience auditive',
     'teacher.statusDraft': 'Brouillon',
     'teacher.statusPending': 'En attente de relecture',
     'teacher.statusApproved': 'Publié',
@@ -590,8 +593,9 @@ const STRINGS = {
     'parent.male': 'Garçon',
     'parent.female': 'Fille',
     'parent.profileType': 'Profil d’apprentissage',
-    'parent.profileStandard': 'Standard',
-    'parent.profileSpecial': 'Besoins spéciaux',
+    'parent.profileNormal': 'Normale',
+    'parent.profileAutism': 'Autisme',
+    'parent.profileHearing': 'Déficience auditive',
     'parent.childLanguage': 'Langue de l’application',
     'parent.loginId': 'Identifiant enfant',
     'parent.loginIdAuto': 'Laissez vide pour générer automatiquement.',
@@ -782,15 +786,16 @@ const STRINGS = {
     'teacher.noLessons': 'لا توجد دروس بعد. أنشئ درسك الأول.',
     'teacher.gamesTitle': 'ألعاب هذا الدرس',
     'teacher.generateGames': 'توليد الألعاب',
-    'teacher.generateHint': 'بنقرة واحدة يُولَّد إصداران: قياسي واحتياجات خاصة، للمواضيع التي تختارها أدناه.',
+    'teacher.generateHint': 'بنقرة واحدة يُولَّد لعبة لكل ملف تعلّم (عادي، توحد، ضعف السمع)، للمواضيع التي تختارها أدناه.',
     'teacher.regenerateHint': 'يولّد اللعبة من جديد مع تعليماتك الإضافية.',
     'teacher.genderTheme': 'الموضوع حسب الجنس',
     'teacher.neutral': 'محايد',
     'teacher.boys': 'الأولاد',
     'teacher.girls': 'البنات',
     'teacher.both': 'الأولاد + البنات',
-    'teacher.variantStandard': 'قياسي',
-    'teacher.variantSpecial': 'احتياجات خاصة',
+    'teacher.variantNormal': 'عادي',
+    'teacher.variantAutism': 'توحد',
+    'teacher.variantHearing': 'ضعف السمع',
     'teacher.statusDraft': 'مسودة',
     'teacher.statusPending': 'بانتظار المراجعة',
     'teacher.statusApproved': 'منشور',
@@ -907,8 +912,9 @@ const STRINGS = {
     'parent.male': 'ولد',
     'parent.female': 'بنت',
     'parent.profileType': 'ملف التعلّم',
-    'parent.profileStandard': 'قياسي',
-    'parent.profileSpecial': 'احتياجات خاصة',
+    'parent.profileNormal': 'عادي',
+    'parent.profileAutism': 'توحد',
+    'parent.profileHearing': 'ضعف السمع',
     'parent.childLanguage': 'لغة التطبيق',
     'parent.loginId': 'اسم مستخدم الطفل',
     'parent.loginIdAuto': 'اتركه فارغًا ليُولَّد تلقائيًا.',
@@ -1030,6 +1036,19 @@ const SCHOOL_LEVELS = [
 ];
 const MAX_LEVEL = 10;
 
+// Learning profiles (children) — mirrors games.variant (one game per profile).
+const PROFILES = ['normale', 'autisme', 'deficience_auditive'];
+
+const PROFILE_LABEL_KEYS = {
+  normale: 'parent.profileNormal',
+  autisme: 'parent.profileAutism',
+  deficience_auditive: 'parent.profileHearing',
+};
+
+function profileLabel(lang, code) {
+  return translate(lang, PROFILE_LABEL_KEYS[code] || 'parent.profileNormal', undefined);
+}
+
 function gradeInfo(code) {
   return SCHOOL_LEVELS.find((s) => s.code === code) || null;
 }
@@ -1038,4 +1057,4 @@ function gradeLabel(lang, code) {
   return translate(lang, `grade.${code}`, undefined);
 }
 
-module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, gradeBand, SCHOOL_LEVELS, MAX_LEVEL, gradeInfo, gradeLabel };
+module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, gradeBand, SCHOOL_LEVELS, MAX_LEVEL, PROFILES, profileLabel, gradeInfo, gradeLabel };

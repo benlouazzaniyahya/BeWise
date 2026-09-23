@@ -9,9 +9,10 @@
 
 const ai = require('./ai');
 const { Lesson, Subject, Game, Job } = require('../models');
+const { PROFILES } = require('../i18n');
 
 const GENDERS = ['neutral', 'male', 'female'];
-const VARIANTS = ['standard', 'special_needs'];
+const VARIANTS = PROFILES;
 
 // Requeue runs that were interrupted (module load time, like the old routes).
 Job.sweepStale();

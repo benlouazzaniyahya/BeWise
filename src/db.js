@@ -35,7 +35,7 @@ db.exec(`
     display_name    TEXT NOT NULL,
     age             INTEGER NOT NULL,
     gender          TEXT NOT NULL CHECK (gender IN ('male','female')),
-    profile_type    TEXT NOT NULL DEFAULT 'standard' CHECK (profile_type IN ('standard','special_needs')),
+    profile_type    TEXT NOT NULL DEFAULT 'normale' CHECK (profile_type IN ('normale','autisme','deficience_auditive')),
     language        TEXT NOT NULL DEFAULT 'en',
     school_level    TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -62,7 +62,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS games (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     lesson_id           INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
-    variant             TEXT NOT NULL CHECK (variant IN ('standard','special_needs')),
+    variant             TEXT NOT NULL CHECK (variant IN ('normale','autisme','deficience_auditive')),
     gender_theme        TEXT NOT NULL DEFAULT 'neutral' CHECK (gender_theme IN ('male','female','neutral')),
     status              TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','pending_review','approved','rejected')),
     template_type       TEXT NOT NULL,

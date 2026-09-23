@@ -268,9 +268,11 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
   const baseLevel = lesson.level;
   const actualLevel = difficultyHint && difficultyHint > 0 ? difficultyHint : baseLevel;
 
-  const variantLine = variant === 'special_needs'
-    ? 'STUDENT PROFILE: special needs. Use very short sentences, smaller number of items, extremely simple vocabulary, generous positive tone, and clearer prompts. Reduce cognitive load.'
-    : 'STUDENT PROFILE: standard. Age-appropriate but can handle normal sentences.';
+  const variantLine = variant === 'autisme'
+    ? 'STUDENT PROFILE: autism. Use very short sentences, smaller number of items, extremely simple vocabulary, generous positive tone, and clearer prompts. Reduce cognitive load.'
+    : variant === 'deficience_auditive'
+      ? 'STUDENT PROFILE: hearing impairment. Keep sentences short and visually clear, rely on pictures/visual cues and written words rather than sound, avoid tasks that depend on hearing, and use plain literal language.'
+      : 'STUDENT PROFILE: normal. Age-appropriate but can handle normal sentences.';
 
   const themeLine = genderTheme === 'male'
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
@@ -302,7 +304,7 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
     }
     prompt += `\nReturn exactly one JSON object matching this STRICT contract: ${schema}\n`
       + `Requirements:\n`
-      + `- For standard profile: 5 to 8 items. For special needs: 3 to 5 items.\n`
+      + `- For normal profile: 5 to 8 items. For autism: 3 to 5 items. For hearing impairment: 3 to 6 items with strong visual cues.\n`
       + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
       + `- Each item has exactly one unambiguous correct answer.\n`
       + `- Quiz: 3 to 4 plausible options, correctIndex inside the options array.\n`
@@ -341,7 +343,7 @@ function sentences(text) {
 }
 
 function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
-  const count = variant === 'special_needs' ? 4 : 6;
+  const count = variant === 'autisme' ? 4 : 6;
   const theme = genderTheme === 'male' ? 'Space' : genderTheme === 'female' ? 'Nature' : 'Fun';
   const intro = lesson.title;
   let items;
@@ -364,7 +366,7 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
       staticSections.push({ title: `${i + 1}. ${question}`, body: `→ ${result}` });
       return { points: 10, question, options, correctIndex: correct, feedback: `${question.replace(' = ?', '')} = ${result}` };
     });
-    return { game: { type: 'quiz', instructions: `${intro} — ${variant === 'special_needs' ? 'simple math' : 'math practice'}`, items, theme }, staticVersion: { sections: staticSections } };
+    return { game: { type: 'quiz', instructions: `${intro} — ${variant === 'autisme' ? 'simple math' : 'math practice'}`, items, theme }, staticVersion: { sections: staticSections } };
   }
 
   const sents = sentences(lesson.raw_lesson_text);
@@ -395,7 +397,7 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
   }
 
   return {
-    game: { type: 'quiz', instructions: `${intro} — ${variant === 'special_needs' ? 'read and choose' : 'read and choose'}`, items, theme },
+    game: { type: 'quiz', instructions: `${intro} — read and choose`, items, theme },
     staticVersion: { sections: staticSections.length ? staticSections : [{ title: intro, body: lesson.raw_lesson_text }] },
   };
 }

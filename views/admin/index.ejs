@@ -79,7 +79,7 @@
             <td><%= c.display_name %></td>
             <td><%= c.age %></td>
             <td><%= t(c.gender === 'male' ? 'parent.male' : 'parent.female') %></td>
-            <td><%= t(c.profile_type === 'special_needs' ? 'parent.profileSpecial' : 'parent.profileStandard') %></td>
+            <td><%= profileLabel(c.profile_type) %></td>
             <td><%= c.child_login_id %></td>
             <td><%= c.parent_email %></td>
             <td>

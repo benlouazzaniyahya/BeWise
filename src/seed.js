@@ -76,9 +76,9 @@ function main() {
     // ---- children ---------------------------------------------------------
     // Age is an independent column: Omar (8) is still in CP — children start
     // school at different ages, so the class is chosen directly by the parent.
-    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 8, 'male', 'standard', 'ar', 'cp');
-    ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'standard', 'en', 'cm1');
-    ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'special_needs', 'fr', 'ce1');
+    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 8, 'male', 'normale', 'ar', 'cp');
+    ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'normale', 'en', 'cm1');
+    ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'autisme', 'fr', 'ce1');
 
     // ---- lessons ----------------------------------------------------------
     // Each class has its OWN levels, decided by the teacher (per subject).
@@ -186,10 +186,10 @@ function main() {
       theme: 'Animals',
     };
     const seedGames = [
-      ['standard', 'male', numberQuiz],
-      ['standard', 'female', numberQuiz],
-      ['standard', 'neutral', numberQuiz],
-      ['special_needs', 'male', simpleQuiz],
+      ['normale', 'male', numberQuiz],
+      ['normale', 'female', numberQuiz],
+      ['normale', 'neutral', numberQuiz],
+      ['autisme', 'male', simpleQuiz],
     ];
     for (const [variant, genderTheme, gameJson] of seedGames) {
       const ex = get("SELECT * FROM games WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND status = 'approved'", mathLessonId, variant, genderTheme);
@@ -216,11 +216,11 @@ function main() {
       ],
       theme: 'School',
     };
-    const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'standard' AND gender_theme = 'neutral' AND status = 'approved'", lReading.id);
+    const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'normale' AND gender_theme = 'neutral' AND status = 'approved'", lReading.id);
     if (!readEx) {
       run(
         `INSERT INTO games (lesson_id, variant, gender_theme, status, template_type, game_json, static_version_json, notes, created_at, approved_at, approved_by)
-         VALUES (?, 'standard', 'neutral', 'approved', ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, 'normale', 'neutral', 'approved', ?, ?, ?, ?, ?, ?, ?)`,
         lReading.id, readingQuiz.type,
         JSON.stringify(readingQuiz), JSON.stringify(deriveStaticVersion(readingQuiz)),
         'seeded demo game', now(), now(), teacher1.id,

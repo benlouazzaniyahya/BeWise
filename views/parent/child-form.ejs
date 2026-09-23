@@ -46,8 +46,9 @@
         <div class="field">
           <label for="profile_type"><%= t('parent.profileType') %></label>
           <select id="profile_type" name="profile_type">
-            <option value="standard" <%= child && child.profile_type === 'standard' ? 'selected' : '' %>><%= t('parent.profileStandard') %></option>
-            <option value="special_needs" <%= child && child.profile_type === 'special_needs' ? 'selected' : '' %>><%= t('parent.profileSpecial') %></option>
+            <% PROFILES.forEach(function(p){ %>
+              <option value="<%= p %>" <%= child && child.profile_type === p ? 'selected' : '' %>><%= profileLabel(p) %></option>
+            <% }); %>
           </select>
         </div>
         <div class="field">

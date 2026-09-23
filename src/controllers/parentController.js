@@ -2,7 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 const { Child, Subject, Lesson, Progress, Badge, Attempt } = require('../models');
-const { tFor, subjectLabel, LANGS, gradeInfo } = require('../i18n');
+const { tFor, subjectLabel, LANGS, gradeInfo, PROFILES } = require('../i18n');
 const { computeLearningSpeed, speedLabelKey } = require('../services/adaptive');
 
 const NAME_RE = /[^\p{L}\p{N}\s'\-]/u;
@@ -18,7 +18,7 @@ function childFormValues(req, child) {
     display_name: child ? child.display_name : String(req.body.display_name || '').trim(),
     age: child ? child.age : Number(req.body.age) || 6,
     gender: child ? child.gender : ['male', 'female'].includes(req.body.gender) ? req.body.gender : 'male',
-    profile_type: child ? child.profile_type : ['standard', 'special_needs'].includes(req.body.profile_type) ? req.body.profile_type : 'standard',
+    profile_type: child ? child.profile_type : PROFILES.includes(req.body.profile_type) ? req.body.profile_type : 'normale',
     language: child ? child.language : LANGS.includes(req.body.language) ? req.body.language : res.locals.lang,
     school_level: gradeInfo(req.body.school_level) ? req.body.school_level : (child ? (child.school_level || 'cp') : 'cp'),
     child_login_id: child ? child.child_login_id : String(req.body.child_login_id || '').trim(),
@@ -131,7 +131,7 @@ function childUpdate(req, res) {
   const display_name = String(req.body.display_name || '').trim();
   const age = Number(req.body.age);
   const gender = ['male', 'female'].includes(req.body.gender) ? req.body.gender : child.gender;
-  const profile_type = ['standard', 'special_needs'].includes(req.body.profile_type) ? req.body.profile_type : child.profile_type;
+  const profile_type = PROFILES.includes(req.body.profile_type) ? req.body.profile_type : child.profile_type;
   const language = LANGS.includes(req.body.language) ? req.body.language : child.language;
   const school_level = gradeInfo(req.body.school_level) ? req.body.school_level : (child.school_level || 'cp');
   if (!display_name || NAME_RE.test(display_name) || !Number.isInteger(age) || age < 3 || age > 18) {

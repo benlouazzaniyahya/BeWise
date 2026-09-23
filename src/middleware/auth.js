@@ -61,8 +61,10 @@ function setLocals(req, res, next) {
   }[name] || 'subject.english');
   res.locals.SCHOOL_LEVELS = require('../i18n').SCHOOL_LEVELS;
   res.locals.MAX_LEVEL = require('../i18n').MAX_LEVEL;
+  res.locals.PROFILES = require('../i18n').PROFILES;
   res.locals.gradeLabel = (code) => translate(res.locals.lang, `grade.${code}`);
   res.locals.gradeInfo = (code) => require('../i18n').gradeInfo(code);
+  res.locals.profileLabel = (code) => require('../i18n').profileLabel(res.locals.lang, code);
   res.locals.aiHasKey = () => Boolean(process.env.OPENROUTER_API_KEY);
 
   next();
