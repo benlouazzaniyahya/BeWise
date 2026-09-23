@@ -158,6 +158,17 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 .flash-success { background: #dcfce7; color: #14532d; border: 1px solid #bbf7d0; }
 .flash-error { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; }
 
+/* Triple-pack preview: game tabs + per-game test tools */
+.triple-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 10px; }
+.triple-tabs .tab-btn {
+  padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--card); color: var(--muted); font-weight: 600; cursor: pointer; font-size: .9rem;
+}
+.triple-tabs .tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+.triple-tabs .tab-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.slot-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.slot-tools + * { margin-top: 12px; }
+
 /* ---------------------------------------------------------------- admin */
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
 .page-head h1 { margin: 0; }

@@ -26,9 +26,19 @@
     const LABELS = { airplane: '🛩️ Airplane', whack_a_mole: '🔨 Whack-A-Mole', flying_fruit: '🍉 Flying Fruit' };
     const ORDER  = ['airplane', 'whack_a_mole', 'flying_fruit'];
     const anyPending = ORDER.some((k) => games[k]);
+    const anyPlayable = ORDER.some((k) => games[k] || approved[k]);
+    const firstPlayable = ORDER.find((k) => games[k] || approved[k]);
   %>
 
-  <% if (!anyPending) { %>
+  <% if (anyPlayable) { %>
+    <div class="triple-tabs">
+      <% ORDER.forEach(function (tpl) { if (games[tpl] || approved[tpl]) { %>
+        <button type="button" class="tab-btn<%= tpl === firstPlayable ? ' active' : '' %>" data-tab="<%= tpl %>"><%= LABELS[tpl] %></button>
+      <% } }); %>
+    </div>
+  <% } %>
+
+  <% if (!anyPending && !anyPlayable) { %>
     <div class="card empty">
       <%= t('teacher.tripleEmpty') %>
     </div>
@@ -36,11 +46,19 @@
 
   <% ORDER.forEach(function(tpl) { %>
     <% var row = games[tpl]; var pubRow = approved[tpl]; %>
-    <div class="card">
+    <div class="card preview-slot<%= (row || pubRow) ? ' has-game' : '' %>" data-slot="<%= tpl %>" <%= (anyPlayable && tpl !== firstPlayable) ? 'hidden' : '' %>>
       <div class="page-head" style="align-items:flex-start;">
-        <h2 style="margin:0"><%= LABELS[tpl] %></h2>
-        <% if (row) { %>
-          <span class="chip chip-pending_review"><%= t('teacher.triplePending') %></span>
+        <div>
+          <h2 style="margin:0"><%= LABELS[tpl] %></h2>
+          <% if (row) { %>
+            <span class="chip chip-pending_review"><%= t('teacher.triplePending') %></span>
+          <% } %>
+        </div>
+        <% if (row || pubRow) { %>
+          <div class="slot-tools">
+            <button type="button" class="btn btn-ghost btn-sm" data-replay="<%= tpl %>"><%= t('teacher.replay') %></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-next="<%= tpl %>"><%= t('teacher.nextGame') %> ▸</button>
+          </div>
         <% } %>
       </div>
 
@@ -108,17 +126,55 @@
 </main>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    ['airplane','whack_a_mole','flying_fruit'].forEach(function (tpl) {
-      var stage = document.querySelector('[data-game-stage][data-template="' + tpl + '"]');
-      if (!stage || !window.Bewize) return;
+    if (!window.Bewize) return;
+    var order = ['airplane', 'whack_a_mole', 'flying_fruit'];
+
+    function $(sel, root) { return (root || document).querySelector(sel); }
+    function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+    function mountPreview(tpl) {
+      var stage = $('[data-game-stage][data-template="' + tpl + '"]');
       var dataEl = document.getElementById('game-data-' + tpl);
-      if (!dataEl) return;
+      if (!stage || !dataEl) return;
       try {
         var game = JSON.parse(dataEl.textContent);
         var mount = stage.querySelector('#game-preview-' + tpl);
         window.Bewize.previewGame(mount, game);
       } catch (e) { /* ignore */ }
+    }
+
+    var playable = order.filter(function (tpl) {
+      var slot = $('[data-slot="' + tpl + '"]');
+      return slot && slot.classList.contains('has-game');
     });
+
+    function setCurrent(tpl) {
+      order.forEach(function (t) {
+        var slot = $('[data-slot="' + t + '"]');
+        if (slot) slot.hidden = t !== tpl;
+      });
+      $$('.triple-tabs .tab-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tpl);
+      });
+    }
+
+    $$('.triple-tabs .tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { setCurrent(btn.getAttribute('data-tab')); });
+    });
+
+    $$('[data-replay]').forEach(function (btn) {
+      btn.addEventListener('click', function () { mountPreview(btn.getAttribute('data-replay')); });
+    });
+
+    order.forEach(function (tpl) {
+      var btn = $('[data-next="' + tpl + '"]');
+      if (!btn) return;
+      var i = playable.indexOf(tpl);
+      btn.hidden = i === -1 || i >= playable.length - 1;
+      btn.addEventListener('click', function () { if (i < playable.length - 1) setCurrent(playable[i + 1]); });
+    });
+
+    playable.forEach(mountPreview);
   });
 </script>
 <%- include('../partials/foot') %>
