@@ -35,6 +35,9 @@ function cleanAnswers(submitted) {
       itemIndex: Number.isInteger(a.itemIndex) ? a.itemIndex : -1,
       selectedIndex: Number.isInteger(a.selectedIndex) ? a.selectedIndex : null,
       selected: typeof a.selected === 'string' ? a.selected.trim() : null,
+      wrongHits: Array.isArray(a.wrongHits)
+        ? a.wrongHits.map((h) => String(h).trim()).filter(Boolean)
+        : [],
       matchedRight: typeof a.matchedRight === 'string' ? a.matchedRight.trim() : null,
       tapped: a.tapped === true,
       text: typeof a.text === 'string' ? a.text.trim() : null,
@@ -54,14 +57,21 @@ function gradeGame(game, submitted) {
 
   const findAns = (i) => answers.find((a) => a.itemIndex === i);
 
-  // airplane — multiple choice, compared by answer text.
+  // airplane — fly into the correct clouds. +10 per correct answer, -5 per
+  // wrong cloud hit on that question (clamped so a question still scores >=0).
   if (Array.isArray(game.questions)) {
     game.questions.forEach((q, i) => {
       const ans = findAns(i);
       const picked = ans && ans.selected ? ans.selected : null;
       const correct = picked != null && eq(picked, q.correct_answer);
+      const pts = Number.isInteger(q.points) && q.points > 0 ? q.points : 10;
       if (correct) {
-        score += Number.isInteger(q.points) && q.points > 0 ? q.points : 10;
+        const hits = (ans.wrongHits || [])
+          .map((h) => String(h).trim())
+          .filter(Boolean)
+          .filter((t) => !eq(t, q.correct_answer));
+        const distinct = [...new Set(hits.map((t) => t.toLowerCase()))];
+        score += Math.max(0, pts - 5 * distinct.length);
         correctCount++;
       }
       details.push({ itemIndex: i, correct });
@@ -77,7 +87,8 @@ function gradeGame(game, submitted) {
       const tapped = ans ? ans.tapped : false;
       const correct = item.is_correct ? tapped : !tapped;
       const pts = Number.isInteger(item.points) && item.points > 0 ? item.points : 10;
-      if (tapped) score += item.is_correct ? pts : -pts;
+      // +10 for a correct tap, -5 for a wrong one (arcade scoring).
+      if (tapped) score += item.is_correct ? pts : -5;
       if (correct) correctCount++;
       details.push({ itemIndex: i, correct, tapped });
     });

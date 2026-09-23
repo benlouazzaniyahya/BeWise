@@ -19,7 +19,7 @@
 //   gender theme).
 // ---------------------------------------------------------------------------
 
-const { gradeBand, TEMPLATES } = require('../i18n');
+const { gradeBand, gradeInfo, MAX_LEVEL, TEMPLATES } = require('../i18n');
 
 const MAX_ATTEMPTS = 3;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -599,6 +599,107 @@ async function fixGame({ lesson, game, feedback, lang, variant, genderTheme, sub
 }
 
 // ---------------------------------------------------------------------------
+// Stateless API helpers for POST /api/games/generate and
+// /api/games/regenerate (spec-compliant `{ metadata, games }` shape).
+// The full teacher context lives in metadata._ctx so a regenerate call can
+// reproduce it losslessly; validation only reads lesson_title + target_level,
+// and the wrapper JSON is never rendered directly by the app.
+// ---------------------------------------------------------------------------
+function extractSingleGame(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (obj.games && typeof obj.games === 'object') {
+    const keys = Object.keys(obj.games).filter((k) => TEMPLATES.includes(k));
+    return keys.length === 1 ? obj.games[keys[0]] : null;
+  }
+  return TEMPLATES.indexOf(obj.template) !== -1 ? obj : null;
+}
+
+function lessonFromSpec({ lessonText, level }) {
+  const raw = String(lessonText || '');
+  const title = (raw.split('\n')[0].trim().slice(0, 80)) || 'Lesson';
+  const asNum = /^\d{1,2}$/.test(String(level || '').trim()) ? Number(String(level).trim()) : null;
+  const schoolCode = !asNum && gradeInfo(String(level || '').toLowerCase()) ? String(level).toLowerCase() : 'cp';
+  return {
+    id: 0,
+    title,
+    school_level: schoolCode,
+    level: asNum ? Math.min(MAX_LEVEL, Math.max(1, asNum)) : 1,
+    raw_lesson_text: raw,
+  };
+}
+
+function packSpec(game, staticVersion, note, ctx) {
+  return {
+    metadata: {
+      lesson_title: (game.meta && game.meta.lesson_title) || ctx.title || 'Lesson',
+      target_level: (game.meta && game.meta.target_level) || String(ctx.levelNum || ctx.school_level || ''),
+      _ctx: ctx,
+    },
+    games: { [game.template]: game },
+    staticVersion,
+    source: staticVersion && staticVersion.source ? staticVersion.source : undefined,
+    note,
+  };
+}
+
+async function generateFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'neutral', subjectName = 'english', template, extraInstructions }) {
+  const lesson = lessonFromSpec({ lessonText, level });
+  const result = await generateOne({
+    lesson,
+    subjectName,
+    variant,
+    genderTheme,
+    lang,
+    template,
+    extraInstructions: String(extraInstructions || '').trim().slice(0, 1200) || undefined,
+    difficultyHint: lesson.level,
+  });
+  return packSpec(result.game, result.staticVersion, result.note, {
+    title: lesson.title,
+    lessonText: lesson.raw_lesson_text.slice(0, 4000),
+    level: level == null ? String(lesson.level) : String(level),
+    levelNum: lesson.level,
+    school_level: lesson.school_level,
+    lang,
+    variant,
+    genderTheme,
+    subjectName,
+  });
+}
+
+async function regenerateFromFeedback({ previousJson, feedbackInstructions }) {
+  const game = extractSingleGame(previousJson || null);
+  if (!game) {
+    const err = new Error('previousJson must contain exactly one of the fixed templates');
+    err.code = 'VALIDATION';
+    throw err;
+  }
+  const meta = previousJson && previousJson.metadata ? previousJson.metadata : {};
+  const ctx = (meta._ctx && typeof meta._ctx === 'object' ? meta._ctx : {});
+  const lesson = lessonFromSpec({ lessonText: ctx.lessonText || '', level: ctx.level || 1 });
+  const result = await fixGame({
+    lesson,
+    game,
+    feedback: String(feedbackInstructions || '').trim().slice(0, 1200),
+    lang: ctx.lang || 'en',
+    variant: ctx.variant || 'normale',
+    genderTheme: ctx.genderTheme || 'neutral',
+    subjectName: ctx.subjectName || 'english',
+  });
+  return packSpec(result.game, result.staticVersion, result.note, {
+    title: (game.title || meta.lesson_title || lesson.title),
+    lessonText: ctx.lessonText || '',
+    level: ctx.level || 1,
+    levelNum: lesson.level,
+    school_level: lesson.school_level,
+    lang: ctx.lang || 'en',
+    variant: ctx.variant || 'normale',
+    genderTheme: ctx.genderTheme || 'neutral',
+    subjectName: ctx.subjectName || 'english',
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Migration support: convert an older game_json into one of the 3 fixed
 // templates so already-approved games keep working. Handles the previous
 // 3-template canonical shape (entries with options/correctIndex) and the
@@ -684,6 +785,8 @@ module.exports = {
   generateOffline,
   generateOne,
   fixGame,
+  generateFromSpec,
+  regenerateFromFeedback,
   convertLegacyGame,
   hasAi: () => Boolean(process.env.OPENROUTER_API_KEY),
 };

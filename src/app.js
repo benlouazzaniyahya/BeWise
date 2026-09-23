@@ -18,6 +18,7 @@ const {
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const teacherRoutes = require('./routes/teacher');
+const apiRoutes = require('./routes/api');
 const parentRoutes = require('./routes/parent');
 const childRoutes = require('./routes/child');
 
@@ -39,6 +40,7 @@ app.use(ensureLang);
 app.use(authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/teacher', teacherRoutes);
+app.use('/api', apiRoutes);
 app.use('/parent', parentRoutes);
 app.use('/child', childRoutes);
 

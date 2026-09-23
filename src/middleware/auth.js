@@ -79,7 +79,7 @@ function ensureLang(req, res, next) {
   );
   const p = req.path;
   if (!hasLang) {
-    const excluded = ['/language', '/assets', '/favicon', '/_', '/auth/google', '/child-login'];
+    const excluded = ['/language', '/assets', '/favicon', '/_', '/auth/google', '/child-login', '/api'];
     const isExcluded = excluded.some((x) => p.startsWith(x));
     if (!isExcluded) {
       return res.redirect('/language?next=' + encodeURIComponent(p + (req.url.includes('?') ? '' : '')));
