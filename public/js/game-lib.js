@@ -279,6 +279,12 @@
       clouds.forEach((c) => {
         if (c.dead) return;
         c.x -= c.vx * 40 * dt;
+        // A cloud that exits the left edge must come back — otherwise the
+        // correct answer can be lost forever and the game can never finish.
+        if (c.x < -120) {
+          c.x = W + 60 + Math.random() * 200;
+          c.vx = 2 + Math.random() * 1.4;
+        }
         if (Math.hypot(planeX - c.x, plane.y - c.y) < 36 + c.r) {
           if (c.correct) {
             c.dead = true;
