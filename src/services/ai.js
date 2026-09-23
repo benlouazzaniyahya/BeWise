@@ -290,20 +290,45 @@ function extractJson(text) {
 // ---------------------------------------------------------------------------
 // OpenRouter call
 // ---------------------------------------------------------------------------
-let clientModel = null;
+const DEFAULT_MODEL = 'nex-agi/nex-n2.5-mini:free';
+// Fallback queue: when one model is rate-limited / out of quota (429/402),
+// the caller rotates to the next one. `OPENROUTER_MODEL` (if set) stays first.
+function getModelQueue() {
+  const extra = [
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'google/gemini-2.0-flash-exp:free',
+    'qwen/qwen-2.5-72b-instruct:free',
+    'deepseek/deepseek-chat-v3-0324:free',
+    'openai/gpt-4o-mini',
+    'stealth/space-bunny-alpha',
+  ];
+  const base = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
+  return [...new Set([base, ...extra])];
+}
 function getClientModel() {
-  if (clientModel) return clientModel;
   if (!process.env.OPENROUTER_API_KEY) return null;
-  clientModel = process.env.OPENROUTER_MODEL || 'nex-agi/nex-n2.5-mini:free';
-  return clientModel;
+  return getModelQueue()[0];
 }
 
-async function callModel(prompt) {
-  const model = getClientModel();
+async function callModel(prompt, options) {
+  options = options || {};
+  const queue = getModelQueue();
+  const model = (options.model || queue[0]);
   if (!model) return null;
   const key = process.env.OPENROUTER_API_KEY;
   const site = process.env.OPENROUTER_SITE_URL || process.env.BASE_URL || 'https://bewize.local';
   const title = process.env.OPENROUTER_APP_TITLE || 'Bewize';
+
+  const body = {
+    model,
+    max_tokens: options.maxTokens || 1200,
+    temperature: options.temperature == null ? 0.7 : options.temperature,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: prompt },
+    ],
+  };
+  if (options.responseFormat) body.response_format = { type: 'json_object' };
 
   const resp = await fetch(OPENROUTER_URL, {
     method: 'POST',
@@ -313,15 +338,7 @@ async function callModel(prompt) {
       'X-Title': title,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1200,
-      temperature: 0.7,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
-      ],
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
@@ -429,6 +446,110 @@ Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child mu
 }
 
 // ---------------------------------------------------------------------------
+// "TRIPLE" mode — ask the model to fill ALL THREE fixed templates in one
+// response (the spec the user pasted combines airplane + whack_a_mole +
+// flying_fruit into a single JSON payload). Sub-validation still happens
+// per template via `validateGameJson`, so each entry is graded/rendered by
+// the exact same engine as before — only the AI call is combined.
+// ---------------------------------------------------------------------------
+function buildTriplePrompt(context) {
+  const lesson = context.lesson;
+  const subjectName = context.subjectName;
+  const variant = context.variant;
+  const genderTheme = context.genderTheme;
+  const lang = context.lang;
+  const extraInstructions = context.extraInstructions;
+  const difficultyHint = context.difficultyHint;
+  const feedback = context.feedback;
+  const currentTriple = context.currentTriple;
+  const mode = context.mode;
+
+  const [ageMin, ageMax] = gradeBand(lesson.school_level);
+  const baseLevel = lesson.level;
+  const actualLevel = difficultyHint && difficultyHint > 0 ? difficultyHint : baseLevel;
+
+  const variantLine = variant === 'autisme'
+    ? 'STUDENT PROFILE: autism. Use very short sentences, smaller number of items, extremely simple vocabulary, generous positive tone, and clearer prompts. Reduce cognitive load.'
+    : variant === 'deficience_auditive'
+      ? 'STUDENT PROFILE: hearing impairment. Keep sentences short and visually clear, rely on written words rather than sound, avoid tasks that depend on hearing, and use plain literal language.'
+      : 'STUDENT PROFILE: normal. Age-appropriate but can handle normal sentences.';
+
+  const themeLine = genderTheme === 'male'
+    ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
+    : genderTheme === 'female'
+      ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
+      : `GENDER THEME: neutral — appealing to everyone.`;
+
+  const languageLine = lang === 'ar'
+    ? 'Arabic (keep proper right-to-left text)'
+    : lang === 'fr' ? 'French' : 'English';
+
+  const tripleContract = `You must return exactly ONE valid JSON object with this shape:
+
+{
+  "metadata": {
+    "lesson_title": "the lesson title",
+    "target_level": "the target grade/level"
+  },
+  "games": {
+    "airplane":      { ... Template 1 below ... },
+    "whack_a_mole":  { ... Template 2 below ... },
+    "flying_fruit":  { ... Template 3 below ... }
+  }
+}
+
+All three keys inside "games" MUST be present and validated. Each is one of the three fixed templates (no other keys allowed):
+
+Template 1 — "airplane": Fly a plane and answer questions.
+{
+  "instructions": "one kid-friendly instruction line",
+  "questions": [
+    { "id": "q1", "question": "...", "correct_answer": "...", "distractors": ["wrong1", "wrong2"] }
+  ]
+}
+
+Template 2 — "whack_a_mole": Whack only the correct moles.
+{
+  "instructions": "one kid-friendly instruction line",
+  "prompt": "what the child must whack (e.g. 'Whack the words that begin with the letter b')",
+  "targets": [
+    { "text": "...", "is_correct": true },
+    { "text": "...", "is_correct": false }
+  ]
+}
+
+Template 3 — "flying_fruit": Catch only the items that belong to a category.
+{
+  "instructions": "one kid-friendly instruction line",
+  "category_prompt": "which category to catch (e.g. 'Catch the fruits')",
+  "items": [
+    { "text": "...", "is_correct": true },
+    { "text": "...", "is_correct": false }
+  ]
+}`;
+
+  let prompt = `Generate a TRIPLE PACK of three learning games for children in ${languageLine}. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\nYou will produce THREE games at once, one of each fixed template below.\nAdapt the following LESSON into a fun, vibrant 2D game storyline. Be highly creative with the questions, words, themes and characters.\nLESSON (subject: ${subjectName}):\nTitle: ${lesson.title}\nContent:\n${lesson.raw_lesson_text}\n`;
+
+  if (mode === 'fix' && currentTriple && feedback) {
+    prompt += `\nThe teacher wants the entire TRIPLE PACK redone. Apply their instructions to ALL THREE templates unless they explicitly ask for a specific one. Output the FULL corrected JSON only.\n\nCurrent TRIPLE PACK JSON:\n${JSON.stringify(currentTriple, null, 1)}\n\nTeacher's instructions:\n${feedback}\n`;
+  } else if (extraInstructions && extraInstructions.trim()) {
+    prompt += `\nEXTRA INSTRUCTIONS FROM THE TEACHER:\n${extraInstructions.trim()}\n`;
+  }
+
+  prompt += `\nReturn exactly one JSON object matching this STRICT contract. ${tripleContract}\n`
+    + `Requirements:\n`
+    + `- "games" contains EXACTLY three keys: "airplane", "whack_a_mole", "flying_fruit".\n`
+    + `- airplane: ${variant === 'autisme' ? 3 : 4} multiple-choice questions, each with one correct_answer and 2 or 3 distractors that are plausible but clearly wrong.\n`
+    + `- whack_a_mole: 6 to 8 tiles total (fewer for autism), at least 2 correct and at least 2 wrong tiles.\n`
+    + `- flying_fruit: 6 to 8 items (fewer for autism), at least 2 correct and at least 2 wrong.\n`
+    + `- The three games should reinforce ONE ANOTHER on the same lesson — e.g. airplane drills facts, whack surfaces vocabulary words from those facts, flying_fruit sorts examples into a category drawn from the lesson.\n`
+    + `- Keep every short field to one line. No extra keys, no prose outside the JSON object.\n`
+    + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
+    + `- The child never sees JSON keys — only the game experience.`;
+  return prompt;
+}
+
+// ---------------------------------------------------------------------------
 // Offline (no API key) generator — deterministic, content-derived, safe.
 // ---------------------------------------------------------------------------
 const NUMBER_WORDS = {
@@ -519,6 +640,194 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
   };
 }
 
+// Offline TRIPLE generator — produces ONE lesson-aligned game for each of the
+// three fixed templates so the entire flow can still be demoed without an
+// OpenRouter key. Builds all three templates directly from the lesson text
+// (does NOT call generateOffline which only ever emits a single template).
+function generateTripleOffline(context) {
+  const lesson = context.lesson;
+  const variant = context.variant;
+  const lang = context.lang;
+  const subjectName = context.subjectName;
+  const genderTheme = context.genderTheme;
+  const theme = genderTheme === 'male' ? 'Space' : genderTheme === 'female' ? 'Nature' : 'Fun';
+  const count = variant === 'autisme' ? 3 : 4;
+
+  // -------- Mine keyword/source pool from lesson text ----------------------
+  // For any non-math subject we treat sentences as cloze + vocabulary sources.
+  // For math we use a deterministic arithmetic fact pool (matches the existing
+  // single-template offline path).
+  let airplaneQ, whackTargets, fruitItems;
+  if (subjectName === 'math') {
+    const rnd = (seed) => { const x = Math.sin(seed * 9973) * 10000; return Math.floor((x - Math.floor(x)) * 9) + 1; };
+    const facts = Array.from({ length: count }, (_, i) => ({
+      a: rnd((lesson.id || 1) * 7 + i * 3 + 1),
+      b: rnd((lesson.id || 1) * 13 + i * 5 + 2),
+      op: i % 2 === 0 ? '+' : '-',
+    }));
+    facts.forEach((f) => { f.x = Math.max(f.a, f.b); f.y = Math.min(f.a, f.b); f.result = f.op === '+' ? f.a + f.b : f.x - f.y; });
+
+    airplaneQ = {
+      title: lesson.title,
+      questions: facts.map((f, i) => {
+        const question = f.op === '+' ? `${f.a} + ${f.b} = ?` : `${f.x} - ${f.y} = ?`;
+        const distractors = [...new Set([f.result + 1, f.result + 2, f.result - 1, f.result + 3].filter((n) => n !== f.result && n >= 0))]
+          .slice(0, 3)
+          .map(String);
+        while (distractors.length < 2) distractors.push(String(f.result + distractors.length + 4));
+        return { id: `q${i + 1}`, question, correct_answer: String(f.result), distractors };
+      }),
+      instructions: 'Answer each question to fly the plane!',
+      intro: 'A math flight of arithmetic facts from this lesson.',
+    };
+
+    const truePairs = facts.slice(0, 3).map((f) => ({ text: `${f.a} ${f.op} ${f.b} = ${f.result}`, is_correct: true }));
+    const wrongNums = [...new Set(facts.map((f) => f.result + 1).filter((n) => !facts.some((q) => q.result === n)))].slice(0, 4);
+    if (wrongNums.length < 2) wrongNums.push(99, 42);
+    const falsePairs = wrongNums.slice(0, 3).map((n) => ({ text: `${facts[0].a} ${facts[0].op} ${facts[0].b} = ${n}`, is_correct: false }));
+    whackTargets = [...truePairs, ...falsePairs];
+
+    fruitItems = [
+      ...facts.slice(0, 3).map((f) => ({ text: `${f.result} (${f.a} ${f.op} ${f.b})`, is_correct: true })),
+      ...wrongNums.slice(0, 3).map((n) => ({ text: `${n}`, is_correct: false })),
+    ];
+  } else {
+    // Non-math: build airplane cloze questions + whack/fruit from keywords.
+    const sents = sentences(lesson.raw_lesson_text);
+    const source = sents.length ? sents : [`${lesson.title} is a great lesson to learn. Practice makes progress!`];
+    const keywords = [];
+    source.slice(0, Math.min(count, source.length)).forEach((sent, idx) => {
+      const words = sent.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length >= 3);
+      const kw = words && words.length ? words[Math.max(0, Math.min(1, words.length - 1))] : 'learn';
+      keywords.push({ sent, kw });
+    });
+
+    airplaneQ = {
+      title: lesson.title,
+      questions: keywords.map((k, i) => {
+        const stem = k.sent.replace(new RegExp('\\b' + k.kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'), '___');
+        const candidateDistractors = keywords
+          .filter((x) => x.kw && x.kw.toLowerCase() !== k.kw.toLowerCase())
+          .map((x) => x.kw);
+        const distractors = [];
+        for (const c of candidateDistractors) {
+          if (c.toLowerCase() === k.kw.toLowerCase()) continue;
+          if (distractors.includes(c)) continue;
+          distractors.push(c);
+          if (distractors.length >= 3) break;
+        }
+        while (distractors.length < 2) distractors.push(`option ${distractors.length + 1}`);
+        return {
+          id: `q${i + 1}`,
+          question: `Fill the blank: "${stem}"`,
+          correct_answer: k.kw,
+          distractors,
+        };
+      }),
+      instructions: 'Pilot the plane and pick the right word for each sentence!',
+      intro: 'A cloze flight built from this lesson.',
+    };
+
+    const trueWords = keywords.map((k) => k.kw);
+    const wrongPool = keywords.map((k) => k.sent).join(' ').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length >= 3 && !trueWords.includes(w));
+    const falseWords = [...new Set([...pickDistractors('', wrongPool, lang, 4), ...(NUMBER_WORDS[lang] ? Object.values(NUMBER_WORDS[lang]) : [])])]
+      .filter((w) => !trueWords.includes(w))
+      .slice(0, 4);
+    while (falseWords.length < 2) falseWords.push('not-this');
+
+    whackTargets = [
+      ...trueWords.map((text) => ({ text, is_correct: true })),
+      ...falseWords.map((text) => ({ text, is_correct: false })),
+    ];
+    fruitItems = whackTargets.slice();
+  }
+
+  const airplaneGame = {
+    template: 'airplane',
+    title: airplaneQ.title,
+    theme,
+    instructions: airplaneQ.instructions,
+    intro: airplaneQ.intro,
+    questions: airplaneQ.questions,
+  };
+  const whackGame = {
+    template: 'whack_a_mole',
+    title: lesson.title,
+    theme,
+    instructions: subjectName === 'math' ? 'Whack only the correct sums!' : 'Whack the words you learned in this lesson!',
+    intro: subjectName === 'math' ? 'A math whack set built from this lesson.' : 'Whack the words from this lesson.',
+    prompt: subjectName === 'math' ? 'Whack the equations that are correct.' : 'Whack the words that belong to this lesson.',
+    targets: whackTargets,
+  };
+  const fruitGame = {
+    template: 'flying_fruit',
+    title: lesson.title,
+    theme,
+    instructions: subjectName === 'math' ? 'Catch the answers that match a true fact!' : 'Catch words that belong to the lesson!',
+    intro: subjectName === 'math' ? 'A math catch set built from this lesson.' : 'A sorting catch set built from this lesson.',
+    category_prompt: subjectName === 'math' ? 'Catch the answers that match the lesson' : 'Catch the words that belong to this lesson',
+    items: fruitItems,
+  };
+
+  return {
+    games: { airplane: airplaneGame, whack_a_mole: whackGame, flying_fruit: fruitGame },
+    staticVersions: {
+      airplane: deriveStaticVersion(airplaneGame),
+      whack_a_mole: deriveStaticVersion(whackGame),
+      flying_fruit: deriveStaticVersion(fruitGame),
+    },
+    source: 'offline',
+    note: 'offline demo triple pack (set OPENROUTER_API_KEY for live AI)',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Triple-shape validation: takes the spec's `{ metadata, games: { 3 templates } }`
+// payload and runs validateGameJson on each sub-template, returning a single
+// `{ ok, games, staticVersions, errors }` object that the rest of the code can
+// store per template (so rendering, grading and storage stay identical to the
+// single-template path).
+// ---------------------------------------------------------------------------
+function validateTripleJson(raw, targetLang) {
+  const errors = [];
+  let obj;
+  try {
+    obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { ok: false, games: null, errors: ['response is not valid JSON'] };
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return { ok: false, games: null, errors: ['response is not a JSON object'] };
+  }
+  if (!obj.games || typeof obj.games !== 'object' || Array.isArray(obj.games)) {
+    return { ok: false, games: null, errors: ['"games" object is required and must contain airplane, whack_a_mole, flying_fruit'] };
+  }
+  const keys = Object.keys(obj.games).filter((k) => TEMPLATES.includes(k));
+  const missing = TEMPLATES.filter((t) => !keys.includes(t));
+  if (missing.length) errors.push(`missing templates in "games": ${missing.join(', ')}`);
+  const extras = Object.keys(obj.games).filter((k) => !TEMPLATES.includes(k));
+  if (extras.length) errors.push(`unexpected keys in "games": ${extras.join(', ')}`);
+
+  const out = { games: {}, staticVersions: {}, errors };
+  if (errors.length) return { ok: false, games: null, errors };
+
+  for (const tpl of TEMPLATES) {
+    const sub = { ...obj.games[tpl], template: tpl };
+    const meta = obj.metadata && typeof obj.metadata === 'object' ? obj.metadata : null;
+    const wrapped = { games: { [tpl]: sub } };
+    if (meta) wrapped.metadata = meta;
+    const v = validateGameJson(wrapped, targetLang);
+    if (!v.ok) {
+      errors.push(...v.errors.map((e) => `[${tpl}] ${e}`));
+      continue;
+    }
+    out.games[tpl] = v.game;
+    out.staticVersions[tpl] = v.staticVersion;
+  }
+  if (errors.length) return { ok: false, games: null, errors };
+  return { ok: true, games: out.games, staticVersions: out.staticVersions, errors: [], metadata: obj.metadata || null };
+}
+
 // ---------------------------------------------------------------------------
 // Public: generate one game for a lesson + profile/gender combination
 // ---------------------------------------------------------------------------
@@ -533,43 +842,50 @@ async function generateOne({ lesson, subjectName, variant, genderTheme, lang, ex
     return { game: built.game, staticVersion: built.staticVersion, source: 'offline', note: 'offline demo generator' };
   }
 
-  const { validation, attempts } = await generateWithRetries(context);
-  const model = getClientModel();
+  const { validation, attempts, model } = await generateWithRetries(context);
   return {
     game: validation.game,
     staticVersion: validation.staticVersion,
     source: 'ai',
-    note: `OpenRouter · ${model} · ${attempts} attempt(s)`,
+    note: `OpenRouter · ${model || getClientModel()} · ${attempts} attempt(s)`,
   };
 }
 
 // Shared AI loop: builds the prompt, calls the model, validates, and re-prompts
-// with the validation errors so the model can repair itself.
+// with the validation errors so the model can repair itself. When a model is
+// rate-limited, out of quota, or unavailable (429/402/404...), it rotates to
+// the next model in the fallback queue instead of giving up.
 async function generateWithRetries(context) {
   const isFix = !!context.mode;
+  const queue = getModelQueue();
+  const MAX_CALLS = Math.min(queue.length * MAX_ATTEMPTS, 10);
+  let modelIndex = 0;
   let prompt = buildPrompt(context);
   let lastErrors = [];
   let attemptsUsed = 0;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    attemptsUsed = attempt;
+  while (modelIndex < queue.length && attemptsUsed < MAX_CALLS) {
     let text;
     try {
-      text = await callModel(prompt);
+      text = await callModel(prompt, { model: queue[modelIndex] });
     } catch (err) {
+      attemptsUsed++;
       const msg = err.message || 'unknown';
       lastErrors.push(`api error: ${msg}`);
-      // Permanent credit/account errors should not be retried.
-      if (/insufficient credits|never purchased|purchase more credits/i.test(msg)) break;
-      // 402 (credits / in-flight), 429 (rate limit) and 5xx are transient: wait and retry.
-      if (!/402|429|5\d\d|in-flight|concurrent|overloaded|temporar/i.test(msg)) break;
-      await sleep(1500 * attempt);
-      prompt = buildPrompt(context);
+      // Bad key / auth: permanent — never worth rotating.
+      if (/401|403|unauthoriz|invalid api key|missing api key|api key required/i.test(msg)) break;
+      // Quota/credits/availability: switch to the next configured model.
+      if (modelIndex < queue.length - 1) { modelIndex++; continue; }
+      if (attemptsUsed >= MAX_CALLS) break;
+      // Whole queue exhausted — brief pause, then start over from the top.
+      await sleep(1200);
+      modelIndex = 0;
       continue;
     }
+    attemptsUsed++;
     const parsed = extractJson(text);
     const validation = validateGameJson(parsed, context.lang);
-    if (validation.ok) return { validation, attempts: attempt };
+    if (validation.ok) return { validation, attempts: attemptsUsed, model: queue[modelIndex] };
     lastErrors = validation.errors;
     prompt = buildPrompt(context)
       + `\n\nYour previous response was REJECTED by validation. The issues were:\n- ${lastErrors.join('\n- ')}\n`
@@ -596,6 +912,98 @@ async function fixGame({ lesson, game, feedback, lang, variant, genderTheme, sub
   const context = { lesson, subjectName, variant, genderTheme, lang, mode: 'fix', currentGame: game, feedback };
   const { validation } = await generateWithRetries(context);
   return { game: validation.game, staticVersion: validation.staticVersion, source: 'ai', note: `OpenRouter redo of ${game.template}` };
+}
+
+// Shared AI loop for TRIPLE mode: one model call serves all three templates.
+// Retries rebuild the prompt with the per-template validation errors so the
+// model can repair itself; uses response_format=json_object when available.
+async function generateTripleWithRetries(context) {
+  const isFix = !!context.mode;
+  const queue = getModelQueue();
+  const MAX_CALLS = Math.min(queue.length * MAX_ATTEMPTS, 10);
+  let modelIndex = 0;
+  let prompt = buildTriplePrompt(context);
+  let lastErrors = [];
+  let attemptsUsed = 0;
+
+  while (modelIndex < queue.length && attemptsUsed < MAX_CALLS) {
+    let text;
+    try {
+      text = await callModel(prompt, { responseFormat: true, maxTokens: 2400, model: queue[modelIndex] });
+    } catch (err) {
+      attemptsUsed++;
+      const msg = err.message || 'unknown';
+      lastErrors.push(`api error: ${msg}`);
+      // Bad key / auth: permanent — never worth rotating.
+      if (/401|403|unauthoriz|invalid api key|missing api key|api key required/i.test(msg)) break;
+      // Quota/credits/availability: switch to the next configured model.
+      if (modelIndex < queue.length - 1) { modelIndex++; continue; }
+      if (attemptsUsed >= MAX_CALLS) break;
+      // Whole queue exhausted — brief pause, then start over from the top.
+      await sleep(1200);
+      modelIndex = 0;
+      continue;
+    }
+    attemptsUsed++;
+    const parsed = extractJson(text);
+    const validation = validateTripleJson(parsed, context.lang);
+    if (validation.ok) return { validation, attempts: attemptsUsed, model: queue[modelIndex] };
+    lastErrors = validation.errors;
+    prompt = buildTriplePrompt(context)
+      + `\n\nYour previous response was REJECTED by per-template validation. The issues were:\n- ${lastErrors.join('\n- ')}\n`
+      + `Please return a corrected triple-pack JSON object only (all three templates inside "games").`;
+  }
+  const err = new Error(`${isFix ? 'Triple redo' : 'Triple generation'} failed${attemptsUsed > 1 ? ` after ${attemptsUsed} attempts` : ''}: ${lastErrors.join('; ')}`);
+  err.code = 'GENERATION_FAILED';
+  throw err;
+}
+
+// ---------------------------------------------------------------------------
+// Public: generate a TRIPLE PACK (all three fixed templates) for a lesson.
+// Returns the same shape as packSpec-style single-game but with three games.
+// ---------------------------------------------------------------------------
+async function generateThree({ lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint }) {
+  const context = { lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint };
+
+  if (!getClientModel()) {
+    const built = generateTripleOffline(context);
+    return { games: built.games, staticVersions: built.staticVersions, source: built.source, note: built.note };
+  }
+
+  const { validation, attempts, model } = await generateTripleWithRetries(context);
+  return {
+    games: validation.games,
+    staticVersions: validation.staticVersions,
+    source: 'ai',
+    note: `OpenRouter triple · ${model || getClientModel()} · ${attempts} attempt(s)`,
+  };
+}
+
+// Redo an existing triple pack from teacher instructions.
+async function fixTriple({ lesson, currentTriple, feedback, lang, variant, genderTheme, subjectName }) {
+  if (!getClientModel()) {
+    const clone = JSON.parse(JSON.stringify(currentTriple));
+    const out = { games: {}, staticVersions: {} };
+    for (const tpl of TEMPLATES) {
+      if (clone.games && clone.games[tpl]) {
+        out.games[tpl] = clone.games[tpl];
+        out.staticVersions[tpl] = deriveStaticVersion(clone.games[tpl]);
+      }
+    }
+    return { games: out.games, staticVersions: out.staticVersions, source: 'offline', note: 'offline mode: no AI to redo' };
+  }
+
+  const context = {
+    lesson, subjectName, variant, genderTheme, lang,
+    mode: 'fix', currentTriple, feedback,
+  };
+  const { validation } = await generateTripleWithRetries(context);
+  return {
+    games: validation.games,
+    staticVersions: validation.staticVersions,
+    source: 'ai',
+    note: `OpenRouter triple redo · ${getClientModel()}`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -700,6 +1108,103 @@ async function regenerateFromFeedback({ previousJson, feedbackInstructions }) {
 }
 
 // ---------------------------------------------------------------------------
+// TRIPLE pack helpers — spec-compliant JSON shape:
+//   { metadata: {...}, games: { airplane, whack_a_mole, flying_fruit } }
+// All three sub-games are returned at once so the teacher can play-test them
+// side by side. _ctx is preserved in metadata for a lossless regenerate call.
+// ---------------------------------------------------------------------------
+function extractTripleGames(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (!obj.games || typeof obj.games !== 'object') return null;
+  const keys = Object.keys(obj.games).filter((k) => TEMPLATES.includes(k));
+  if (keys.length !== TEMPLATES.length) return null;
+  return {
+    airplane: obj.games.airplane,
+    whack_a_mole: obj.games.whack_a_mole,
+    flying_fruit: obj.games.flying_fruit,
+  };
+}
+
+function packTripleSpec(games, staticVersions, note, ctx) {
+  const titleFrom = (g) => (g && g.meta && g.meta.lesson_title) || (g && g.title) || ctx.title || 'Lesson';
+  const levelFrom = (g) => (g && g.meta && g.meta.target_level) || String(ctx.levelNum || ctx.school_level || '');
+  const firstMeta = games.airplane;
+  return {
+    metadata: {
+      lesson_title: titleFrom(firstMeta),
+      target_level: levelFrom(firstMeta),
+      _ctx: ctx,
+    },
+    games: {
+      airplane: games.airplane,
+      whack_a_mole: games.whack_a_mole,
+      flying_fruit: games.flying_fruit,
+    },
+    staticVersions,
+    source: 'ai',
+    note,
+  };
+}
+
+async function generateTripleFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'neutral', subjectName = 'english', extraInstructions }) {
+  const lesson = lessonFromSpec({ lessonText, level });
+  const result = await generateThree({
+    lesson,
+    subjectName,
+    variant,
+    genderTheme,
+    lang,
+    extraInstructions: String(extraInstructions || '').trim().slice(0, 1200) || undefined,
+    difficultyHint: lesson.level,
+  });
+  const ctx = {
+    title: lesson.title,
+    lessonText: lesson.raw_lesson_text.slice(0, 4000),
+    level: level == null ? String(lesson.level) : String(level),
+    levelNum: lesson.level,
+    school_level: lesson.school_level,
+    lang,
+    variant,
+    genderTheme,
+    subjectName,
+  };
+  return packTripleSpec(result.games, result.staticVersions, result.note, ctx);
+}
+
+async function regenerateTripleFromFeedback({ previousJson, feedbackInstructions }) {
+  const triple = extractTripleGames(previousJson || null);
+  if (!triple) {
+    const err = new Error('previousJson must contain all three of the fixed templates');
+    err.code = 'VALIDATION';
+    throw err;
+  }
+  const meta = previousJson && previousJson.metadata ? previousJson.metadata : {};
+  const ctx = (meta._ctx && typeof meta._ctx === 'object' ? meta._ctx : {});
+  const lesson = lessonFromSpec({ lessonText: ctx.lessonText || '', level: ctx.level || 1 });
+  const currentTriple = { metadata: { _ctx: ctx }, games: triple };
+  const result = await fixTriple({
+    lesson,
+    currentTriple,
+    feedback: String(feedbackInstructions || '').trim().slice(0, 1200),
+    lang: ctx.lang || 'en',
+    variant: ctx.variant || 'normale',
+    genderTheme: ctx.genderTheme || 'neutral',
+    subjectName: ctx.subjectName || 'english',
+  });
+  return packTripleSpec(result.games, result.staticVersions, result.note, {
+    title: meta.lesson_title || lesson.title,
+    lessonText: ctx.lessonText || '',
+    level: ctx.level || 1,
+    levelNum: lesson.level,
+    school_level: lesson.school_level,
+    lang: ctx.lang || 'en',
+    variant: ctx.variant || 'normale',
+    genderTheme: ctx.genderTheme || 'neutral',
+    subjectName: ctx.subjectName || 'english',
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Migration support: convert an older game_json into one of the 3 fixed
 // templates so already-approved games keep working. Handles the previous
 // 3-template canonical shape (entries with options/correctIndex) and the
@@ -781,12 +1286,19 @@ function convertLegacyGame(json) {
 module.exports = {
   TEMPLATES,
   validateGameJson,
+  validateTripleJson,
   deriveStaticVersion,
   generateOffline,
+  generateTripleOffline,
   generateOne,
+  generateThree,
   fixGame,
+  fixTriple,
   generateFromSpec,
   regenerateFromFeedback,
+  generateTripleFromSpec,
+  regenerateTripleFromFeedback,
+  extractTripleGames,
   convertLegacyGame,
   hasAi: () => Boolean(process.env.OPENROUTER_API_KEY),
 };
