@@ -361,6 +361,67 @@ async function callModel(prompt, options) {
 }
 
 // ---------------------------------------------------------------------------
+// Course-grounding: derive the lesson's OWN vocabulary so generated games can
+// be REQUIRED to reuse it. Games must mirror the course content — not generic
+// trivia. The validation loops re-prompt the model when the pack drifts away
+// from the lesson keywords.
+// ---------------------------------------------------------------------------
+const GROUNDING_STOPWORDS = new Set([
+  'though', 'during', 'above', 'below', 'between', 'without', 'within', 'because', 'again',
+  'the', 'and', 'are', 'for', 'with', 'that', 'this', 'from', 'have', 'your', 'you',
+  'about', 'they', 'will', 'into', 'some', 'what', 'when', 'them', 'then', 'each', 'than',
+  'were', 'been', 'being', 'would', 'could', 'should', 'there', 'their', 'these', 'those',
+  'more', 'most', 'other', 'very', 'just', 'over', 'also', 'can', 'may', 'might', 'which',
+  'a', 'an', 'to', 'of', 'in', 'is', 'it', 'on', 'be', 'by', 'or', 'as', 'at', 'so', 'we',
+  'he', 'she', 'his', 'her', 'not', 'but', 'all', 'has', 'was', 'one', 'two', 'three',
+  'le', 'la', 'les', 'un', 'une', 'de', 'du', 'des', 'et', 'ou', 'il', 'elle', 'que', 'qui',
+  'est', 'sont', 'pour', 'avec', 'dans', 'sur', 'pas', 'plus', 'mais', 'ses', 'ce', 'cette',
+  'ces', 'par', 'aux', 'dau', 'tout', 'tous', 'comme', 'votre', 'nous', 'vous', 'leur',
+  'في', 'من', 'على', 'إلى', 'ال', 'عن', 'و', 'هو', 'هي', 'أن', 'إن', 'لا', 'ما', 'بعد',
+  'قبل', 'مثل', 'قد', 'أو', 'مع', 'هذا', 'هذه', 'ذلك', 'كان', 'كانت', 'ثم', 'حيث', 'أي',
+]);
+
+function courseKeywords(lesson) {
+  const text = String((lesson && (lesson.raw_lesson_text || lesson.title)) || '').toLowerCase();
+  const words = text.match(/[\p{L}\p{N}]+/gu) || [];
+  const seen = new Set();
+  const out = [];
+  for (const w of words) {
+    if (w.length < 3 || /^\d+$/.test(w)) continue;
+    if (GROUNDING_STOPWORDS.has(w)) continue;
+    if (seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+    if (out.length >= 14) break;
+  }
+  return out;
+}
+
+function groundingHits(text, keywords) {
+  const low = String(text || '').toLowerCase();
+  const hits = [];
+  for (const k of keywords) if (low.includes(k)) hits.push(k);
+  return hits;
+}
+
+// Returns a rejection reason string when the AI output drifts away from the
+// course vocabulary, or '' when it is sufficiently grounded. Skipped entirely
+// for teacher-driven redo/correction requests (they may legitimately alter the
+// topic) — the `mode === 'fix'` caller decides.
+function courseGroundingError(obj, lesson) {
+  const kws = courseKeywords(lesson);
+  if (kws.length < 3) return '';
+  if (!obj || typeof obj !== 'object') return '';
+  const games = obj.games && typeof obj.games === 'object' && !Array.isArray(obj.games) ? obj.games : obj;
+  const text = JSON.stringify(games);
+  const hits = groundingHits(text, kws);
+  const need = kws.length >= 6 ? 2 : 1;
+  if (hits.length >= need) return '';
+  const missing = kws.filter((k) => !hits.includes(k)).slice(0, 12).join(', ');
+  return `The generated content is not related to the course. Reuse the lesson's own vocabulary: missing terms from COURSE JSON: ${missing}. Base questions, answers, tiles and categories ONLY on the exact words and facts of the course provided.`;
+}
+
+// ---------------------------------------------------------------------------
 // Prompt builder (no PII — only generic lesson/profile context)
 // ---------------------------------------------------------------------------
 function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint, mode, currentGame, feedback, template }) {
@@ -431,7 +492,15 @@ Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child mu
   ]
 }`;
 
-  let prompt = `Create a learning game for children in the ${languageLine} language. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\n${templateChoice}\nAdapt the following LESSON into a fun, vibrant 2D game storyline. Be highly creative with the questions, words, themes and characters.\nLESSON (subject: ${subjectName}):\nTitle: ${lesson.title}\nContent:\n${lesson.raw_lesson_text}\n`;
+  const courseJson = JSON.stringify({
+    lesson_title: lesson.title,
+    subject: subjectName,
+    grade_band: lesson.school_level,
+    level: lesson.level,
+    course_content: lesson.raw_lesson_text,
+  });
+
+  let prompt = `Create a learning game for children in the ${languageLine} language. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\n${templateChoice}\nAdapt the following LESSON into a fun, vibrant 2D game storyline. The COURSE JSON below is the ONLY source of truth for the content: every question, answer, word, tile and category MUST be taken from it. Do NOT invent facts, words or examples that are not in the course.\nCOURSE JSON (subject: ${subjectName}):\n${courseJson}\n`;
 
   if (mode === 'fix') {
     prompt += `\nThe teacher wants the game REDONE. Apply their instructions. Keep the SAME template unless the teacher explicitly asks for a different one. Output the FULL corrected JSON object only. Never add text outside the JSON.\n\nCurrent game JSON:\n${JSON.stringify(currentGame, null, 1)}\n\nTeacher's instructions for the redo:\n${feedback}\n`;
@@ -446,6 +515,7 @@ Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child mu
     + `- Keep EVERY short field to one line. No extra keys, no prose outside the JSON object.\n`
     + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
     + `- Distractors must be plausible but clearly different from the correct answer.`
+    + `- CONTENT MUST BE RELATED TO THE COURSE: every question, answer, word and example must appear in the COURSE JSON. Never use generic or unrelated content.`
     + `- The child never sees JSON keys — only the game experience.`;
   return prompt;
 }
@@ -460,7 +530,6 @@ Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child mu
 function buildTriplePrompt(context) {
   const lesson = context.lesson;
   const subjectName = context.subjectName;
-  const variant = context.variant;
   const genderTheme = context.genderTheme;
   const lang = context.lang;
   const extraInstructions = context.extraInstructions;
@@ -473,12 +542,9 @@ function buildTriplePrompt(context) {
   const baseLevel = lesson.level;
   const actualLevel = difficultyHint && difficultyHint > 0 ? difficultyHint : baseLevel;
 
-  const variantLine = variant === 'autisme'
-    ? 'STUDENT PROFILE: autism. Use very short sentences, smaller number of items, extremely simple vocabulary, generous positive tone, and clearer prompts. Reduce cognitive load.'
-    : variant === 'deficience_auditive'
-      ? 'STUDENT PROFILE: hearing impairment. Keep sentences short and visually clear, rely on written words rather than sound, avoid tasks that depend on hearing, and use plain literal language.'
-      : 'STUDENT PROFILE: normal. Age-appropriate but can handle normal sentences.';
-
+  // THE TRIPLE PACK IS PURELY COURSE-DRIVEN: the three games always reinforce
+  // the SAME lesson for every learner profile. No autism/hearing specialization
+  // here — content fidelity to the course matters more than profile tweaks.
   const themeLine = genderTheme === 'male'
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
     : genderTheme === 'female'
@@ -533,10 +599,18 @@ Template 3 — "flying_fruit": Catch only the items that belong to a category.
   ]
 }`;
 
-  let prompt = `Generate a TRIPLE PACK of three learning games for children in ${languageLine}. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\nYou will produce THREE games at once, one of each fixed template below.\nAdapt the following LESSON into a fun, vibrant 2D game storyline. Be highly creative with the questions, words, themes and characters.\nLESSON (subject: ${subjectName}):\nTitle: ${lesson.title}\nContent:\n${lesson.raw_lesson_text}\n`;
+  const courseJson = JSON.stringify({
+    lesson_title: lesson.title,
+    subject: subjectName,
+    grade_band: lesson.school_level,
+    level: lesson.level,
+    course_content: lesson.raw_lesson_text,
+  });
+
+  let prompt = `Generate a TRIPLE PACK of three learning games for children in ${languageLine}. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${themeLine}\nYou will produce THREE games at once, one of each fixed template below, and all THREE must teach the SAME lesson.\nAdapt the lesson below into a fun, vibrant 2D game storyline. The COURSE JSON is the ONLY source of truth for the content: every question, answer, word, tile and category MUST be taken from it. Do NOT invent facts, words or examples that are not in the course.\nCOURSE JSON (subject: ${subjectName}):\n${courseJson}\n`;
 
   if (mode === 'fix' && currentTriple && feedback) {
-    prompt += `\nThe teacher wants the entire TRIPLE PACK redone. Apply their instructions to ALL THREE templates unless they explicitly ask for a specific one. Output the FULL corrected JSON only.\n\nCurrent TRIPLE PACK JSON:\n${JSON.stringify(currentTriple, null, 1)}\n\nTeacher's instructions:\n${feedback}\n`;
+    prompt += `\nThe teacher wants the entire TRIPLE PACK redone. Apply their instructions to ALL THREE templates unless they explicitly ask for a specific one. Keep the content related to the COURSE JSON above. Output the FULL corrected JSON only.\n\nCurrent TRIPLE PACK JSON:\n${JSON.stringify(currentTriple, null, 1)}\n\nTeacher's instructions:\n${feedback}\n`;
   } else if (extraInstructions && extraInstructions.trim()) {
     prompt += `\nEXTRA INSTRUCTIONS FROM THE TEACHER:\n${extraInstructions.trim()}\n`;
   }
@@ -544,10 +618,11 @@ Template 3 — "flying_fruit": Catch only the items that belong to a category.
   prompt += `\nReturn exactly one JSON object matching this STRICT contract. ${tripleContract}\n`
     + `Requirements:\n`
     + `- "games" contains EXACTLY three keys: "airplane", "whack_a_mole", "flying_fruit".\n`
-    + `- airplane: ${variant === 'autisme' ? 3 : 4} multiple-choice questions, each with one correct_answer and 2 or 3 distractors that are plausible but clearly wrong.\n`
-    + `- whack_a_mole: 6 to 8 tiles total (fewer for autism), at least 2 correct and at least 2 wrong tiles.\n`
-    + `- flying_fruit: 6 to 8 items (fewer for autism), at least 2 correct and at least 2 wrong.\n`
-    + `- The three games should reinforce ONE ANOTHER on the same lesson — e.g. airplane drills facts, whack surfaces vocabulary words from those facts, flying_fruit sorts examples into a category drawn from the lesson.\n`
+    + `- airplane: 4 multiple-choice questions that DRILL THE FACTS AND VOCABULARY OF THE COURSE, each with one correct_answer and 2 or 3 distractors that are plausible but clearly wrong.\n`
+    + `- whack_a_mole: 6 to 8 tiles total, all words taken from the COURSE JSON, at least 2 correct and at least 2 wrong tiles.\n`
+    + `- flying_fruit: 6 to 8 items, all words taken from the COURSE JSON, at least 2 correct and at least 2 wrong.\n`
+    + `- The three games reinforce ONE ANOTHER on the same lesson — e.g. airplane drills facts, whack surfaces vocabulary words from those facts, flying_fruit sorts examples into a category drawn from the lesson.\n`
+    + `- CONTENT MUST BE RELATED TO THE COURSE: every question, answer, word and example must appear in the COURSE JSON. Never use generic or unrelated content.\n`
     + `- Keep every short field to one line. No extra keys, no prose outside the JSON object.\n`
     + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
     + `- The child never sees JSON keys — only the game experience.`;
@@ -889,7 +964,13 @@ async function generateWithRetries(context) {
     }
     attemptsUsed++;
     const parsed = extractJson(text);
-    const validation = validateGameJson(parsed, context.lang);
+    let validation = validateGameJson(parsed, context.lang);
+    // Course grounding: content must reuse the lesson's own vocabulary. Skipped
+    // for teacher corrective redos (fix mode) which may legitimately refocus.
+    if (validation.ok && !context.mode) {
+      const grounding = courseGroundingError(parsed, context.lesson);
+      if (grounding) validation = { ok: false, game: null, errors: [grounding] };
+    }
     if (validation.ok) return { validation, attempts: attemptsUsed, model: queue[modelIndex] };
     lastErrors = validation.errors;
     prompt = buildPrompt(context)
@@ -951,7 +1032,11 @@ async function generateTripleWithRetries(context) {
     }
     attemptsUsed++;
     const parsed = extractJson(text);
-    const validation = validateTripleJson(parsed, context.lang);
+    let validation = validateTripleJson(parsed, context.lang);
+    if (validation.ok && !context.mode) {
+      const grounding = courseGroundingError(parsed.games, context.lesson);
+      if (grounding) validation = { ok: false, games: null, errors: [grounding] };
+    }
     if (validation.ok) return { validation, attempts: attemptsUsed, model: queue[modelIndex] };
     lastErrors = validation.errors;
     prompt = buildTriplePrompt(context)
@@ -1292,6 +1377,8 @@ module.exports = {
   TEMPLATES,
   validateGameJson,
   validateTripleJson,
+  courseKeywords,
+  courseGroundingError,
   deriveStaticVersion,
   generateOffline,
   generateTripleOffline,
