@@ -117,6 +117,7 @@ function unlockNextLesson(childId, lesson) {
   const next = Lesson.findNextToUnlock({
     subjectId: lesson.subject_id,
     fromId: lesson.id,
+    fromLevel: lesson.level,
     fromOrder: lesson.order_index,
     childId,
   });

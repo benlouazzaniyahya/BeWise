@@ -95,6 +95,7 @@ body {
 .chip-muted, .chip-locked, .chip-in_progress, .chip-pending, .chip-pending_review, .chip-draft { background: #e5e7f0; color: #4b5563; }
 .chip-rejected, .chip-failed { background: #fee2e2; color: #b91c1c; }
 .chip-warning { background: #fef3c7; color: #b45309; }
+.chip-level { background: #fef9c3; color: #a16207; }
 
 /* ---------------------------------------------------------------- cards */
 .card {
@@ -215,6 +216,7 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 .lesson-main { flex: 1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .lesson-actions { display: flex; gap: 8px; }
 .subject-title { text-transform: capitalize; }
+.subject-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .lesson-meta { align-items: center; }
 .result-card { border-radius: var(--radius); padding: 18px; margin-top: 18px; }
 .result-pass { background: #ecfdf5; border: 1px solid #a7f3d0; }

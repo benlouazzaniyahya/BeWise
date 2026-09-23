@@ -33,6 +33,8 @@ function computeLessonMap(child) {
     const ls = lessons.filter((l) => l.subject_id === s.id);
     if (!ls.length) continue;
     const firstNotPassed = ls.findIndex((l) => !passed.has(l.id));
+    const maxLevel = Math.max(0, ...ls.map((l) => Number(l.level) || 0));
+    const reached = firstNotPassed === -1 ? maxLevel : firstNotPassed === 0 ? 0 : (Number(ls[firstNotPassed - 1].level) || 0);
     const mapped = ls.map((l, i) => {
       let status = passed.has(l.id) ? 'passed' : i === firstNotPassed ? 'unlocked' : 'locked';
       const row = progMap[l.id];
@@ -45,6 +47,8 @@ function computeLessonMap(child) {
       subject: s,
       label: subjectLabel(child.language, s.name),
       lessons: mapped,
+      reached,
+      max: maxLevel,
     });
   }
   return bySubject;

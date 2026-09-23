@@ -17,7 +17,7 @@ const listWithSubject = () =>
   all(
     `SELECT l.*, s.name AS subject_name FROM lessons l
      JOIN subjects s ON s.id = l.subject_id
-     ORDER BY s.id ASC, l.order_index ASC, l.id ASC`,
+     ORDER BY s.id ASC, l.level ASC, l.order_index ASC, l.id ASC`,
   );
 const countAll = () => get('SELECT COUNT(*) AS n FROM lessons').n;
 
@@ -37,14 +37,16 @@ const update = (id, { title, rawLessonText, subjectId, level, targetScore, order
 
 const deleteById = (id) => run('DELETE FROM lessons WHERE id = ?', id);
 
-// First lesson after `from` (same subject) the child hasn't passed yet.
-const findNextToUnlock = ({ subjectId, fromId, fromOrder, childId }) =>
+// First lesson the child hasn't passed yet, after `from` in the same subject,
+// walking the class's levels (level ASC, then order_index ASC).
+const findNextToUnlock = ({ subjectId, fromId, fromLevel, fromOrder, childId }) =>
   get(
     `SELECT * FROM lessons
-     WHERE subject_id = ? AND id != ? AND order_index >= ?
+     WHERE subject_id = ? AND id != ?
+       AND (level > ? OR (level = ? AND order_index > ?))
        AND id NOT IN (SELECT lesson_id FROM progress WHERE child_id = ? AND status = 'passed')
-     ORDER BY order_index ASC, id ASC LIMIT 1`,
-    subjectId, fromId, fromOrder, childId,
+     ORDER BY level ASC, order_index ASC, id ASC LIMIT 1`,
+    subjectId, fromId, fromLevel, fromLevel, fromOrder, childId,
   );
 
 module.exports = {

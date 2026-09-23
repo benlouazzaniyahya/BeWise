@@ -37,9 +37,9 @@
         <div class="field">
           <label for="difficultyHint"><%= t('common.level') %> <%= t('adaptive.delegate') %></label>
           <select id="difficultyHint" name="difficultyHint">
-            <% [1,2,3,4,5,6].forEach(function(lv){ %>
+            <% var maxHintLv = (typeof MAX_LEVEL === 'number') ? MAX_LEVEL : 10; for (var lv = 1; lv <= maxHintLv; lv++) { %>
               <option value="<%= lv %>" <%= (suggested === lv) ? 'selected' : '' %>><%= lv %></option>
-            <% }); %>
+            <% } %>
           </select>
           <p class="hint"><%= t('teacher.generateHint') %></p>
         </div>

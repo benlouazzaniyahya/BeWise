@@ -81,7 +81,8 @@ function main() {
     ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'special_needs', 'fr', 'ce1');
 
     // ---- lessons ----------------------------------------------------------
-    // Each class owns its own difficulty level (CP=1 … 6ème=6).
+    // Each class has its OWN levels, decided by the teacher (per subject).
+    // e.g. CP maths = 2 levels (Counting L1, Shapes L2); CM1 English = 2 levels.
     const l1 = getOrCreateLesson(teacher1.id, subjects.math, 'Numbers and Counting 1–10', [
       'Numbers 1 to 10: one, two, three, four, five, six, seven, eight, nine, ten.',
       'Counting tells us how many things there are.',
@@ -112,33 +113,52 @@ function main() {
       'Les couleurs : rouge, bleu, vert, jaune, orange, violet, noir et blanc.',
       'Le ciel est bleu, la pomme est rouge et l’herbe est verte.',
       'Retrouve les couleurs que tu connais dans le jeu de vocabulaire.',
-    ].join(' '), 2, 60, 1, 'ce1');
+    ].join(' '), 1, 60, 1, 'ce1');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Plural nouns: one apple, two apples', [
       'We say one apple but two apples. Add -s (or -es) to make plurals: cat → cats, box → boxes.',
       'Some plurals change: one child, two children; one foot, two feet.',
       'Look at the words and choose their plural form in the game.',
-    ].join(' '), 3, 60, 1, 'ce2');
+    ].join(' '), 1, 60, 1, 'ce2');
+
+    getOrCreateLesson(teacher1.id, subjects.english, 'Opposites: hot and cold, big and small', [
+      'Opposites are words with different meanings: hot ↔ cold, big ↔ small, up ↔ down.',
+      'Day is the opposite of night, and happy is the opposite of sad.',
+      'Match every word with its opposite in the game.',
+    ].join(' '), 2, 60, 2, 'ce2');
 
     const lReading = getOrCreateLesson(teacher1.id, subjects.english, 'Reading: My school day', [
       "Every day I get up at seven o'clock. I wash my face, eat breakfast and put on my school bag.",
       'My school starts at eight. We read, we count and we play.',
       'At noon I eat lunch with my friends. After school I do my homework, then I play outside.',
       'Read the text and answer the questions in the game.',
-    ].join(' '), 4, 60, 2, 'cm1');
+    ].join(' '), 1, 60, 1, 'cm1');
+
+    getOrCreateLesson(teacher1.id, subjects.english, 'Grammar: yesterday, last week (past simple)', [
+      'To speak about the past we often add -ed: walk → walked, play → played.',
+      'Some verbs change: go → went, come → came, see → saw.',
+      'Yesterday I walked to school and I saw my friends.',
+      'Choose the correct past form in the game.',
+    ].join(' '), 2, 60, 2, 'cm1');
 
     getOrCreateLesson(teacher1.id, subjects.math, 'Multiplying by 10, 100 and 1000', [
       'When you multiply by 10, the number grows 10 times bigger: 25 × 10 = 250.',
       'By 100: 25 × 100 = 2500. By 1000: 25 × 1000 = 25000.',
       'The digits move to the left and we add zeroes.',
       'Practise with the multiplication game.',
-    ].join(' '), 5, 60, 1, 'cm2');
+    ].join(' '), 1, 60, 1, 'cm2');
 
     getOrCreateLesson(teacher1.id, subjects.math, 'Solving simple equations', [
       'An equation is a balance: x + 3 = 10 means x is the number that makes both sides equal.',
       'x = 7 because 7 + 3 = 10. Find the unknown and keep the balance.',
       'Solve each equation step by step in the game.',
-    ].join(' '), 6, 60, 2, 'sixieme');
+    ].join(' '), 1, 60, 1, 'sixieme');
+
+    getOrCreateLesson(teacher1.id, subjects.math, 'Two-step equations', [
+      'Some equations need two steps: 2x + 3 = 11. First remove 3: 2x = 8.',
+      'Then divide by 2: x = 4. Check: 2 × 4 + 3 = 11. Correct!',
+      'Practise balancing equations of two steps in the game.',
+    ].join(' '), 2, 60, 2, 'sixieme');
 
     // ---- pre-approved games for lesson 1 (playable immediately) -----------
     const mathLessonId = l1.id;

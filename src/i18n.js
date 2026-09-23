@@ -59,8 +59,7 @@ const STRINGS = {
 
     'school.title': 'School level',
     'school.childHint': 'The class the child is in. Age is a separate field: children can start school at different ages. The lesson map only shows lessons for this class.',
-    'school.lessonHint': 'Which class this lesson is meant for. Each class has its own difficulty levels (1 to 6).',
-    'school.derivedHint': 'Assigned automatically from the class above.',
+    'school.lessonHint': 'Which class this lesson is meant for. Each level is a step inside that class — you decide how many levels each class has.',
     'grade.cp': 'CP',
     'grade.ce1': 'CE1',
     'grade.ce2': 'CE2',
@@ -142,6 +141,7 @@ const STRINGS = {
     'teacher.targetScore': 'Score needed to pass (%)',
     'teacher.targetScoreHint': 'How many percent of the points the child needs to pass (default 60).',
     'teacher.orderIndex': 'Order',
+    'teacher.levelHint': 'Which step this lesson is inside the chosen class (1 = beginning). You decide how many levels each class has; children start at level 0 and unlock each level by passing its lessons.',
     'teacher.saveLesson': 'Save lesson',
     'teacher.lessonCreated': 'Lesson created.',
     'teacher.lessonUpdated': 'Lesson updated.',
@@ -231,6 +231,8 @@ const STRINGS = {
 
     'child.welcome': 'Hi',
     'child.lessonMap': 'My lessons',
+    'child.level': 'Level',
+    'child.levelProgress': 'Level {reached}/{max}',
     'child.noLessons': 'No lessons available for you yet.',
     'child.statusPassed': 'Passed',
     'child.statusUnlocked': 'Ready',
@@ -374,8 +376,7 @@ const STRINGS = {
 
     'school.title': 'Niveau scolaire',
     'school.childHint': 'La classe dans laquelle est l’enfant. L’âge est un champ séparé : les enfants peuvent commencer l’école à des âges différents. La carte des leçons n’affiche que les leçons de cette classe.',
-    'school.lessonHint': 'La classe à laquelle cette leçon est destinée. Chaque classe a ses propres niveaux de difficulté (1 à 6).',
-    'school.derivedHint': 'Attribué automatiquement d’après la classe ci-dessus.',
+    'school.lessonHint': 'La classe à laquelle cette leçon est destinée. Chaque niveau est une étape dans cette classe : c’est vous qui décidez combien de niveaux chaque classe possède.',
     'grade.cp': 'CP',
     'grade.ce1': 'CE1',
     'grade.ce2': 'CE2',
@@ -457,6 +458,7 @@ const STRINGS = {
     'teacher.targetScore': 'Score requis pour réussir (%)',
     'teacher.targetScoreHint': 'Pourcentage de points nécessaire pour réussir (par défaut 60).',
     'teacher.orderIndex': 'Ordre',
+    'teacher.levelHint': 'L’étape de cette leçon dans la classe choisie (1 = début). C’est vous qui décidez combien de niveaux chaque classe possède ; les enfants commencent au niveau 0 et débloquent chaque niveau en réussissant ses leçons.',
     'teacher.saveLesson': 'Enregistrer la leçon',
     'teacher.lessonCreated': 'Leçon créée.',
     'teacher.lessonUpdated': 'Leçon mise à jour.',
@@ -546,6 +548,8 @@ const STRINGS = {
 
     'child.welcome': 'Salut',
     'child.lessonMap': 'Mes leçons',
+    'child.level': 'Niveau',
+    'child.levelProgress': 'Niveau {reached}/{max}',
     'child.noLessons': 'Aucune leçon disponible pour vous pour le moment.',
     'child.statusPassed': 'Réussie',
     'child.statusUnlocked': 'Prête',
@@ -689,8 +693,7 @@ const STRINGS = {
 
     'school.title': 'المستوى الدراسي',
     'school.childHint': 'الفصل الذي يدرسه الطفل. العمر حقل منفصل: الأطفال قد يبدأون المدرسة في أعمار مختلفة. خريطة الدروس تعرض فقط دروس هذا الفصل.',
-    'school.lessonHint': 'الفصل الذي صُمم هذا الدرس له. لكل فصل مستويات صعوبة خاصة به (1 إلى 6).',
-    'school.derivedHint': 'يُعيّن تلقائياً حسب الفصل أعلاه.',
+    'school.lessonHint': 'الفصل الذي صُمم هذا الدرس له. كل مستوى هو خطوة داخل هذا الفصل: أنت الذي تقرر عدد المستويات لكل فصل.',
     'grade.cp': 'التحضيري',
     'grade.ce1': 'الأول ابتدائي',
     'grade.ce2': 'الثاني ابتدائي',
@@ -772,6 +775,7 @@ const STRINGS = {
     'teacher.targetScore': 'النتيجة المطلوبة للنجاح (٪)',
     'teacher.targetScoreHint': 'النسبة المئوية من النقاط المطلوبة للنجاح (الافتراضي 60).',
     'teacher.orderIndex': 'الترتيب',
+    'teacher.levelHint': 'خطوة هذا الدرس داخل الفصل المختار (1 = البداية). أنت الذي تقرر عدد المستويات لكل فصل؛ يبدأ الأطفال بالمستوى 0 ويفتحون كل مستوى باجتياز دروسه.',
     'teacher.saveLesson': 'حفظ الدرس',
     'teacher.lessonCreated': 'تم إنشاء الدرس.',
     'teacher.lessonUpdated': 'تم تحديث الدرس.',
@@ -861,6 +865,8 @@ const STRINGS = {
 
     'child.welcome': 'مرحبًا',
     'child.lessonMap': 'دروسي',
+    'child.level': 'المستوى',
+    'child.levelProgress': 'المستوى {reached}/{max}',
     'child.noLessons': 'لا توجد دروس متاحة لك بعد.',
     'child.statusPassed': 'ناجح',
     'child.statusUnlocked': 'جاهز',
@@ -997,28 +1003,32 @@ function subjectLabel(lang, name) {
   return translate(lang, map[name] || 'subject.english', undefined);
 }
 
-function levelBand(level) {
-  // Each school class = its own difficulty level (CP → 6ème).
-  const bands = [
-    [6, 7], // 1 - CP
-    [7, 8], // 2 - CE1
-    [8, 9], // 3 - CE2
-    [9, 10], // 4 - CM1
-    [10, 11], // 5 - CM2
-    [11, 12], // 6 - 6ème
-  ];
-  return bands[Math.min(Math.max(level - 1, 0), 5)];
+// Typical-class age bands (informational, for the AI's vocabulary level).
+// The child's own age is independent — see the child form.
+const CLASS_AGE_BANDS = {
+  cp: [6, 7],
+  ce1: [7, 8],
+  ce2: [8, 9],
+  cm1: [9, 10],
+  cm2: [10, 11],
+  sixieme: [11, 12],
+};
+
+function gradeBand(code) {
+  return CLASS_AGE_BANDS[code] || [6, 9];
 }
 
-// French school levels (CP → 6ème). Each class owns its own difficulty level.
+// French school levels (CP → 6ème). Each class contains its own difficulty
+// levels (1..MAX_LEVEL), and the teacher decides how many levels it has.
 const SCHOOL_LEVELS = [
-  { code: 'cp', level: 1 },
-  { code: 'ce1', level: 2 },
-  { code: 'ce2', level: 3 },
-  { code: 'cm1', level: 4 },
-  { code: 'cm2', level: 5 },
-  { code: 'sixieme', level: 6 },
+  { code: 'cp' },
+  { code: 'ce1' },
+  { code: 'ce2' },
+  { code: 'cm1' },
+  { code: 'cm2' },
+  { code: 'sixieme' },
 ];
+const MAX_LEVEL = 10;
 
 function gradeInfo(code) {
   return SCHOOL_LEVELS.find((s) => s.code === code) || null;
@@ -1028,4 +1038,4 @@ function gradeLabel(lang, code) {
   return translate(lang, `grade.${code}`, undefined);
 }
 
-module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, levelBand, SCHOOL_LEVELS, gradeInfo, gradeLabel };
+module.exports = { LANGS, LANG_META, translate, tFor, subjectLabel, gradeBand, SCHOOL_LEVELS, MAX_LEVEL, gradeInfo, gradeLabel };

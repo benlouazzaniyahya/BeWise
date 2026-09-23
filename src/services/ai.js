@@ -12,7 +12,7 @@
 //   gender theme).
 // ---------------------------------------------------------------------------
 
-const { levelBand } = require('../i18n');
+const { gradeBand } = require('../i18n');
 
 const TYPES = ['quiz', 'match', 'fill'];
 const MAX_ATTEMPTS = 3;
@@ -264,7 +264,7 @@ async function callModel(prompt) {
 // Prompt builder (no PII — only generic lesson/profile context)
 // ---------------------------------------------------------------------------
 function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint, mode, currentGame, feedback }) {
-  const [ageMin, ageMax] = levelBand(lesson.level);
+  const [ageMin, ageMax] = gradeBand(lesson.school_level);
   const baseLevel = lesson.level;
   const actualLevel = difficultyHint && difficultyHint > 0 ? difficultyHint : baseLevel;
 

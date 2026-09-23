@@ -1,6 +1,7 @@
 'use strict';
 
 const { Attempt } = require('../models');
+const { MAX_LEVEL } = require('../i18n');
 
 // ---------------------------------------------------------------------------
 // Adaptive learning: uses each child's saved attempt history (score over
@@ -85,7 +86,7 @@ function speedLabelKey(speed) {
 }
 
 // Difficulty suggestion for a child in a subject (used for adaptive generation).
-// Returns the level to ask the AI for (1..5).
+// Returns the level to ask the AI for (1..MAX_LEVEL, within the class).
 function suggestDifficulty(childId, subjectId, baseLevel) {
   const rows = Attempt.scoreRowsForSubject(childId, subjectId);
   if (!rows.length) return baseLevel;
@@ -96,7 +97,7 @@ function suggestDifficulty(childId, subjectId, baseLevel) {
   let level = baseLevel;
   if (avgPct >= 85 && passRate >= 0.75) level = baseLevel + 1;
   else if (avgPct < 60 || passRate < 0.4) level = baseLevel - 1;
-  return Math.min(6, Math.max(1, level));
+  return Math.min(MAX_LEVEL, Math.max(1, level));
 }
 
 // Class-level suggestion: difficulty to ask the AI when generating for a whole
@@ -110,7 +111,7 @@ function suggestLevelForSubject(subjectId, baseLevel) {
   let level = baseLevel;
   if (avgPct >= 82 && passRate >= 0.7) level = baseLevel + 1;
   else if (avgPct < 55 || passRate < 0.35) level = baseLevel - 1;
-  return Math.min(6, Math.max(1, level));
+  return Math.min(MAX_LEVEL, Math.max(1, level));
 }
 
 module.exports = { attemptHistory, computeLearningSpeed, speedLabelKey, suggestDifficulty, suggestLevelForSubject };

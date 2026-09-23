@@ -11,7 +11,10 @@
 
   <% bySubject.forEach(function(g){ %>
     <div class="card">
-      <h2 class="subject-title"><%= g.label %></h2>
+      <div class="subject-head">
+        <h2 class="subject-title"><%= g.label %></h2>
+        <span class="chip chip-school"><%= t('child.levelProgress', {reached: g.reached, max: g.max}) %></span>
+      </div>
       <% g.lessons.forEach(function(m){ %>
         <% var l = m.lesson; var allowed = m.status !== 'locked'; %>
         <div class="lesson-row <%= m.status %>">
@@ -22,6 +25,7 @@
           </div>
           <div class="lesson-main">
             <strong><%= l.title %></strong>
+            <span class="chip chip-level"><%= t('child.level') %> <%= l.level %></span>
             <span class="chip chip-<%= m.status %>">
               <%= t({passed:'child.statusPassed',unlocked:'child.statusUnlocked',locked:'child.statusLocked',in_progress:'child.statusInProgress'}[m.status]) %>
             </span>

@@ -1,13 +1,14 @@
 'use strict';
 
 const { Subject, Lesson, Game, Job } = require('../models');
-const { tFor, subjectLabel, gradeInfo } = require('../i18n');
+const { tFor, subjectLabel, gradeInfo, MAX_LEVEL } = require('../i18n');
 const ai = require('../services/ai');
 const generator = require('../services/generator');
 const { suggestLevelForSubject } = require('../services/adaptive');
 
 const { GENDERS, VARIANTS } = generator;
 const clampTarget = (n) => Math.min(100, Math.max(1, n));
+const clampLevel = (n) => Math.min(MAX_LEVEL, Math.max(1, n));
 const localNow = () => new Date().toISOString();
 
 function gameJsonSafe(game) {
@@ -58,7 +59,7 @@ function lessonCreate(req, res) {
   const raw = String(req.body.raw_lesson_text || '').trim();
   const subjectId = Number(req.body.subject_id);
   const schoolLevel = gradeFromBody(req.body, 'cp');
-  const level = gradeInfo(schoolLevel).level;
+  const level = clampLevel(Number(req.body.level) || 1);
   const target = clampTarget(Number(req.body.target_score) || 60);
 
   if (!title || !raw || !Subject.findById(subjectId)) {
@@ -114,7 +115,7 @@ function lessonUpdate(req, res) {
     title: String(req.body.title || '').trim() || lesson.title,
     rawLessonText: String(req.body.raw_lesson_text || '').trim() || lesson.raw_lesson_text,
     subjectId: Number(req.body.subject_id) || lesson.subject_id,
-    level: gradeInfo(schoolLevel).level,
+    level: clampLevel(Number(req.body.level) || lesson.level),
     targetScore: clampTarget(Number(req.body.target_score) || lesson.target_score),
     orderIndex: Number(req.body.order_index) ?? lesson.order_index,
     schoolLevel,
