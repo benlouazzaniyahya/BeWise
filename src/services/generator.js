@@ -9,7 +9,7 @@
 
 const ai = require('./ai');
 const { Lesson, Subject, Game, Job } = require('../models');
-const { PROFILES } = require('../i18n');
+const { PROFILES, TEMPLATES } = require('../i18n');
 
 const GENDERS = ['neutral', 'male', 'female'];
 const VARIANTS = PROFILES;
@@ -27,6 +27,8 @@ async function processJob(job) {
     // clean older non-approved games for this combo before inserting the fresh one
     Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme);
 
+    const template = TEMPLATES.includes(payload.template) ? payload.template : undefined;
+
     const result = await ai.generateOne({
       lesson,
       subjectName: subject.name,
@@ -35,13 +37,14 @@ async function processJob(job) {
       lang: payload.lang || 'en',
       extraInstructions: payload.extraInstructions,
       difficultyHint: payload.difficultyHint,
+      template,
     });
 
     const gameId = Game.create({
       lessonId: lesson.id,
       variant: payload.variant,
       genderTheme: payload.genderTheme,
-      templateType: result.game.type,
+      templateType: result.game.template,
       gameJson: JSON.stringify(result.game),
       staticVersionJson: JSON.stringify(result.staticVersion),
       notes: result.note,

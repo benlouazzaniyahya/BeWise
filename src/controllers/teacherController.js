@@ -1,7 +1,7 @@
 'use strict';
 
 const { Subject, Lesson, Game, Job } = require('../models');
-const { tFor, subjectLabel, gradeInfo, MAX_LEVEL } = require('../i18n');
+const { tFor, subjectLabel, gradeInfo, MAX_LEVEL, TEMPLATES } = require('../i18n');
 const ai = require('../services/ai');
 const generator = require('../services/generator');
 const { suggestLevelForSubject } = require('../services/adaptive');
@@ -143,6 +143,7 @@ function lessonGenerate(req, res) {
 
   const extraInstructions = String(req.body.extraInstructions || '').trim().slice(0, 1200);
   const difficultyHint = Number(req.body.difficultyHint) || lesson.level;
+  const template = TEMPLATES.includes(req.body.template) ? req.body.template : undefined;
   const subject = Subject.findById(lesson.subject_id);
 
   const jobs = [];
@@ -151,6 +152,7 @@ function lessonGenerate(req, res) {
       jobs.push({
         variant,
         genderTheme,
+        template,
         lang: Subject.defaultLanguage(subject.name),
         extraInstructions,
         difficultyHint,
@@ -229,7 +231,7 @@ async function gameFix(req, res) {
       staticVersionJson: JSON.stringify(result.staticVersion || ai.deriveStaticVersion(result.game)),
       notes: result.note,
     });
-    req.flash('success', t('teacher.fixed'));
+    req.flash('success', t('teacher.redoDone'));
   } catch (err) {
     req.flash('error', t('teacher.generationFailed'));
   }
@@ -243,6 +245,7 @@ function gameRegenerate(req, res) {
   generator.dispatch(game.lesson_id, [{
     variant: game.variant,
     genderTheme: game.gender_theme,
+    template: game.template_type,
     lang: Subject.defaultLanguage(game.subject_name),
     extraInstructions: String(req.body.extraInstructions || '').trim().slice(0, 1200),
     difficultyHint: Number(req.body.difficultyHint) || Lesson.findById(game.lesson_id).level,

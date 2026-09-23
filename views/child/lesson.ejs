@@ -78,10 +78,16 @@
 <script type="application/json" id="game-data" data-lesson-id="<%= lesson.id %>" data-game-id="<%= game.id %>"><%- JSON.stringify(gameJson).replace(/</g, '\\u003c') %></script>
 <script type="application/json" id="ui-strings"><%- JSON.stringify({
   correct: t('game.q.correct'), incorrect: t('game.q.incorrect'),
-  next: t('game.q.next'), finish: t('game.q.finish'),
-  question: t('game.q.question'), of: t('game.q.of'),
-  matchLeft: t('game.match.left'), matchRight: t('game.match.right'), matched: t('game.match.matched'), matchLeftCount: t('game.match.leftCount'),
-  fillHint: t('game.fill.hint'), check: t('game.fill.check'), fillGood: t('game.fill.good'), fillAgain: t('game.fill.again'),
+  next: t('game.q.next'), finish: t('game.q.finish'), start: t('game.q.start'), skip: t('game.q.skip'),
+  journey: t('game.adventure.journey'), stop: t('game.adventure.stop'), scene: t('game.adventure.scene'),
+  retry: t('game.adventure.retry'), advance: t('game.adventure.advance'), missionComplete: t('game.adventure.missionComplete'),
+  questBoard: t('game.quest.board'), questRound: t('game.quest.round'), trophy: t('game.quest.trophy'),
+  goal: t('game.build.goal'), parts: t('game.build.parts'), assembled: t('game.build.assembled'), built: t('game.build.built'),
+  templates: [
+    { id: 'adventure_mission', label: t('template.adventure_mission') },
+    { id: 'challenge_quest', label: t('template.challenge_quest') },
+    { id: 'build_rescue', label: t('template.build_rescue') }
+  ],
   notSupported: t('game.q.notSupported')
 }).replace(/</g, '\\u003c') %></script>
 <script>

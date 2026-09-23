@@ -65,6 +65,7 @@ function setLocals(req, res, next) {
   res.locals.gradeLabel = (code) => translate(res.locals.lang, `grade.${code}`);
   res.locals.gradeInfo = (code) => require('../i18n').gradeInfo(code);
   res.locals.profileLabel = (code) => require('../i18n').profileLabel(res.locals.lang, code);
+  res.locals.templateLabel = (code) => require('../i18n').templateLabel(res.locals.lang, code);
   res.locals.aiHasKey = () => Boolean(process.env.OPENROUTER_API_KEY);
 
   next();

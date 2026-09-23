@@ -279,6 +279,52 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 /* ---------------------------------------------------------------- review */
 .review-actions { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 
+/* ------------------------------------------------------ fixed templates */
+.chip-template {
+  background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;
+}
+.game-header-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.game-title { margin: 4px 0; font-size: 1.25rem; }
+.game-intro { font-size: 1.05rem; margin: 8px 0 14px; }
+.intro-box { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.entry-meta { margin-bottom: 4px; }
+.entry-label { margin: 0; }
+.entry-detail { color: var(--muted); margin: 0 0 4px; font-size: .96rem; }
+
+/* adventure_mission — journey */
+.journey-track { display: flex; align-items: center; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.journey-title { font-weight: 800; margin-right: 8px; font-size: .9rem; color: var(--muted); }
+[dir="rtl"] .journey-title { margin-right: 0; margin-left: 8px; }
+.journey-node {
+  width: 30px; height: 30px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 800; font-size: .85rem;
+  background: #eef2ff; color: #4338ca; border: 2px solid #c7d2fe;
+}
+.journey-node.done { background: #ecfdf5; color: #15803d; border-color: #6ee7b7; }
+.journey-node.current { background: var(--primary); color: #fff; border-color: var(--primary-dark); box-shadow: 0 0 0 4px rgba(79,70,229,.15); }
+
+/* challenge_quest — quest board */
+.quest-board { display: flex; align-items: center; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.board-title { font-weight: 800; margin-right: 8px; font-size: .9rem; color: var(--muted); }
+[dir="rtl"] .board-title { margin-right: 0; margin-left: 8px; }
+.quest-slot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 10px; border: 2px solid var(--line); background: #fff; }
+.quest-slot.current { border-color: var(--primary); background: #eef2ff; }
+.quest-slot-label { font-size: .78rem; font-weight: 700; color: var(--muted); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quest-cup { font-size: 1.15rem; color: #d1d5db; }
+.quest-cup.earned { color: var(--amber); }
+
+/* build_rescue — build track */
+.build-goal { font-size: 1.02rem; font-weight: 800; margin: 6px 0 2px; }
+.build-track { display: flex; align-items: center; gap: 5px; margin: 12px 0 6px; flex-wrap: wrap; }
+.build-seg {
+  width: 34px; height: 16px; border-radius: 6px; background: #f1f5f9;
+  border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; color: #94a3b8;
+}
+.build-seg.built { background: #ecfdf5; color: #15803d; border-color: #6ee7b7; }
+.build-seg.current { background: var(--primary); color: #fff; border-color: var(--primary-dark); }
+.build-count { font-size: .82rem; font-weight: 700; color: var(--muted); margin-left: 8px; }
+[dir="rtl"] .build-count { margin-left: 0; margin-right: 8px; }
+
 /* ---------------------------------------------------------------- rtl */
 [dir="rtl"] { text-align: right; }
 [dir="rtl"] .table th, [dir="rtl"] .table td { text-align: right; }

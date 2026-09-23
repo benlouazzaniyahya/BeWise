@@ -143,6 +143,32 @@ for (const l of db.prepare("SELECT id, level FROM lessons WHERE school_level IS 
   backfillLessonStmt.run(TABLE_GRADES[Number(l.level)] || 'cp', l.id);
 }
 
+// ---------------------------------------------------------------------------
+// Migration: legacy games (old quiz/match/fill game_json) → the fixed 3
+// template architecture. Runs on boot so already-approved games stay
+// playable and reviewable after the template refactor.
+// ---------------------------------------------------------------------------
+{
+  const { convertLegacyGame, deriveStaticVersion } = require('./services/ai');
+  const legacy = db.prepare('SELECT id, game_json FROM games WHERE template_type NOT IN (?, ?, ?)')
+    .all('adventure_mission', 'challenge_quest', 'build_rescue');
+  const saveGame = db.prepare('UPDATE games SET game_json = ?, template_type = ?, static_version_json = ?, notes = COALESCE(notes, ?) WHERE id = ?');
+  for (const row of legacy) {
+    let parsed = null;
+    try { parsed = JSON.parse(row.game_json); } catch { /* skip malformed */ }
+    if (!parsed) continue;
+    const converted = convertLegacyGame(parsed);
+    if (!converted) continue;
+    saveGame.run(
+      JSON.stringify(converted.game),
+      converted.game.template,
+      JSON.stringify(converted.staticVersion || deriveStaticVersion(converted.game)),
+      `migrated to ${converted.game.template}`,
+      row.id,
+    );
+  }
+}
+
 const nonNull = (row) => {
   if (row === undefined || row === null) return null;
   return row;

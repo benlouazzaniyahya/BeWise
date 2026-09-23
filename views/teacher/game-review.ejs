@@ -6,7 +6,7 @@
       <p class="muted small"><%= subject_label %> · <%= t('common.level') %> <%= game.level %> · <%= t('common.score') %> ≥ <%= game.target_score %>%</p>
       <h1><%= t('teacher.previewTitle') %> — <%= game.lesson_title %></h1>
       <p class="muted small">
-        <%= t('teacher.templateType') %>: <strong><%= game.template_type %></strong> ·
+        <%= t('teacher.templateType') %>: <strong><%= templateLabel(game.template_type) %></strong> ·
         <%= t('teacher.variantNormal') %>/<%= t('teacher.variantAutism') %>/<%= t('teacher.variantHearing') %>: <strong><%= profileLabel(game.variant) %></strong> ·
         <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[game.gender_theme]) %>
         <span class="chip chip-<%= game.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[game.status]) %></span>
@@ -37,13 +37,14 @@
     </div>
 
     <div class="card">
-      <h2><%= t('teacher.fix') %></h2>
+      <h2><%= t('teacher.redoTitle') %></h2>
+      <p class="hint"><%= t('teacher.redoHint') %></p>
       <form action="/teacher/games/<%= game.id %>/fix" method="post">
         <div class="field">
-          <label for="feedback"><%= t('teacher.fixFeedback') %></label>
-          <textarea id="feedback" name="feedback" rows="3" required placeholder="<%= t('teacher.fixPlaceholder') %>"></textarea>
+          <label for="feedback"><%= t('teacher.redoFeedback') %></label>
+          <textarea id="feedback" name="feedback" rows="3" required placeholder="<%= t('teacher.redoPlaceholder') %>"></textarea>
         </div>
-        <button class="btn btn-primary" type="submit"><%= t('teacher.fix') %></button>
+        <button class="btn btn-primary" type="submit"><%= t('teacher.redoTitle') %></button>
       </form>
     </div>
 

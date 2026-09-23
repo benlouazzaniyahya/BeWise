@@ -44,6 +44,17 @@
           <p class="hint"><%= t('teacher.generateHint') %></p>
         </div>
         <div class="field">
+          <label for="template"><%= t('teacher.template') %></label>
+          <select id="template" name="template">
+            <option value=""><%= t('teacher.templateAuto') %></option>
+            <option value="adventure_mission"><%= templateLabel('adventure_mission') %></option>
+            <option value="challenge_quest"><%= templateLabel('challenge_quest') %></option>
+            <option value="build_rescue"><%= templateLabel('build_rescue') %></option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
           <label for="extraInstructions"><%= t('teacher.extraInstructions') %></label>
           <input id="extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
         </div>
@@ -80,6 +91,7 @@
           <strong><%= profileLabel(g.variant) %></strong>
           ·
           <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g.gender_theme]) %>
+          <span class="chip chip-template"><%= templateLabel(g.template_type) %></span>
           <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %></span>
           <% if (g.notes) { %><span class="small muted">(<%= g.notes %>)</span><% } %>
         </div>

@@ -205,7 +205,7 @@ async function booster(req, res) {
       lessonId: lesson.id,
       variant: child.profile_type,
       genderTheme: child.gender,
-      templateType: result.game.type,
+      templateType: result.game.template,
       gameJson: JSON.stringify(result.game),
       staticVersionJson: JSON.stringify(result.staticVersion),
       notes: 'adaptive-booster',

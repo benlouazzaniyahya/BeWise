@@ -3,9 +3,15 @@
   'use strict';
 
   // ---------------------------------------------------------------------------
-  // Tiny DOM helpers — ALL dynamic text is set with textContent (never
-  // innerHTML) so AI-generated content can never inject markup.
+  // Bewize game-lib: the library is FIXED to exactly 3 reusable templates —
+  //   adventure_mission, challenge_quest, build_rescue.
+  // The AI only ever provides structured CONTENT for one of these templates;
+  // it never defines new templates, layouts or UI. All content is rendered
+  // with textContent (never innerHTML) so AI text can never inject markup.
   // ---------------------------------------------------------------------------
+
+  const TEMPLATES = ['adventure_mission', 'challenge_quest', 'build_rescue'];
+
   function make(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -15,7 +21,7 @@
   function clear(node) {
     while (node && node.firstChild) node.removeChild(node.firstChild);
   }
-  function shuffle(arr) {
+  function shuffleArr(arr) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -23,243 +29,389 @@
     }
     return a;
   }
-  const eq = (x, y) => String(x).trim().toLowerCase() === String(y).trim().toLowerCase();
 
   const DEFAULT_UI = {
     correct: 'Correct!',
     incorrect: 'Not quite.',
     next: 'Next',
     finish: 'Finish',
-    question: 'Question',
-    of: 'of',
-    matchLeft: 'Tap a card on the left',
-    matchRight: 'Now tap its match on the right',
-    matched: 'Matched!',
-    matchLeftCount: 'left to match',
-    fillHint: 'Type the missing word, then tap Check.',
-    check: 'Check',
-    fillGood: 'Yes!',
-    fillAgain: 'Try again.',
-    notSupported: 'This game type is not supported yet.',
+    start: 'Start',
+    skip: 'Skip',
     score: 'Score',
     answered: 'answered',
+    notSupported: 'This game type is not supported yet.',
+    journey: 'Journey',
+    stop: 'Stop',
+    scene: 'Scene',
+    advance: 'Solved! Moving on…',
+    retry: 'Not quite — try again!',
+    missionComplete: 'Mission complete!',
+    questBoard: 'Quest board',
+    questRound: 'Round',
+    trophy: 'Trophy',
+    goal: 'Goal',
+    parts: 'parts',
+    assembled: 'Assembled — rescue complete!',
+    built: 'Built',
   };
 
   function header(game, ui) {
     const h = make('div', 'game-header');
-    if (game.theme) h.appendChild(make('span', 'chip chip-theme', game.theme));
+    const meta = make('div', 'game-header-meta');
+    if (game.theme) meta.appendChild(make('span', 'chip chip-theme', game.theme));
+    const tpl = TEMPLATES.indexOf(game.template);
+    if (tpl >= 0) {
+      let label = ['adventure_mission', 'challenge_quest', 'build_rescue'][tpl];
+      if (ui.templates && Array.isArray(ui.templates)) {
+        const found = ui.templates.filter((x) => x && x.id === label)[0];
+        if (found && found.label) label = found.label;
+      }
+      meta.appendChild(make('span', 'chip chip-template', label));
+    }
+    h.appendChild(meta);
+    if (game.title) h.appendChild(make('h2', 'game-title', game.title));
     if (game.instructions) h.appendChild(make('p', 'game-instructions', game.instructions));
     return h;
   }
 
   // ---------------------------------------------------------------------------
-  // Quiz / MCQ template
+  // Shared helpers
   // ---------------------------------------------------------------------------
-  function renderQuiz(box, game, ui, onFinish) {
-    let index = 0;
-    let score = 0;
+  function buildOptions(opts, onPick) {
+    const box = make('div', 'game-options');
+    (opts || []).forEach((opt, i) => {
+      const b = make('button', 'quiz-option');
+      b.textContent = String(opt);
+      b.addEventListener('click', () => {
+        if (b.disabled) return;
+        onPick(i, b);
+      });
+      box.appendChild(b);
+    });
+    return { box, buttons: Array.prototype.slice.call(box.children) };
+  }
+
+  function detailLabel(entry, ui) {
+    const wrap = make('div', 'entry-meta');
+    if (entry.label) wrap.appendChild(make('p', 'game-progress entry-label', entry.label));
+    if (entry.detail) wrap.appendChild(make('p', 'entry-detail', entry.detail));
+    return wrap;
+  }
+
+  function finishBar(finishLabel) {
+    return make('button', 'btn btn-primary', finishLabel);
+  }
+
+  // Partial "skip" resets a step without submitting.
+  function skipBtn(label, onSkip) {
+    const s = make('button', 'btn btn-ghost btn-sm', label);
+    s.addEventListener('click', onSkip);
+    return s;
+  }
+
+  // Intro/gate screen shared by all templates.
+  function introScreen(parent, game, ui, onStart) {
+    clear(parent);
+    const box = make('div', 'live intro-box');
+    if (game.intro) box.appendChild(make('p', 'game-intro', game.intro));
+    if (game.template === 'build_rescue' && game.goal) {
+      box.appendChild(make('p', 'build-goal', ui.goal + ': ' + game.goal));
+    }
+    const start = make('button', 'btn btn-primary btn-lg', ui.start);
+    start.addEventListener('click', onStart);
+    box.appendChild(start);
+    parent.appendChild(box);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Template 1: adventure_mission — a gated story journey.
+  // Each "stop" must be answered correctly to advance. Retries allowed.
+  // ---------------------------------------------------------------------------
+  function renderAdventure(box, game, ui, onFinish) {
     const answers = [];
+    let index = 0;
+    let clientScore = 0;
 
     const stage = make('div', 'live');
+    box.appendChild(stage);
+
+    const journey = make('div', 'journey-track');
     const progressEl = make('p', 'game-progress', '');
+    const labelP = make('p', 'game-progress entry-label', '');
+    const sceneP = make('p', 'entry-detail', '');
     const qEl = make('div', 'game-question');
-    const optsEl = make('div', 'game-options');
+    const optsBox = make('div', 'game-options');
     const feedbackEl = make('div', 'game-feedback');
+    const stepMeta = make('div', '');
     const footerEl = make('div', 'game-footer');
+
+    stage.appendChild(journey);
     stage.appendChild(progressEl);
+    stage.appendChild(stepMeta);
     stage.appendChild(qEl);
-    stage.appendChild(optsEl);
+    stage.appendChild(optsBox);
     stage.appendChild(feedbackEl);
     stage.appendChild(footerEl);
-    box.appendChild(stage);
 
-    function renderQuestion() {
-      clear(qEl); clear(optsEl); clear(feedbackEl); clear(footerEl);
-      if (index >= game.items.length) { return finish(); }
-      const item = game.items[index];
-      progressEl.textContent = ui.question + ' ' + (index + 1) + ' ' + ui.of + ' ' + game.items.length;
-      qEl.textContent = item.question || '';
-      (item.options || []).forEach((opt, i) => {
-        const b = make('button', 'quiz-option');
-        b.textContent = String(opt);
-        b.addEventListener('click', () => answer(item, i, b));
-        optsEl.appendChild(b);
+    function buildTrack() {
+      clear(journey);
+      const t = make('span', 'journey-title', ui.journey);
+      journey.appendChild(t);
+      game.entries.forEach((e, i) => {
+        const n = make('span', 'journey-node' + (i < index ? ' done' : i === index ? ' current' : ''));
+        n.textContent = String(i + 1);
+        n.title = e.label || '';
+        journey.appendChild(n);
       });
-      const btn = make('button', 'btn btn-primary', index === game.items.length - 1 ? ui.finish : ui.next);
-      btn.addEventListener('click', () => { index++; renderQuestion(); });
-      footerEl.appendChild(btn);
     }
 
-    function answer(item, pickedIdx, chosenBtn) {
-      const buttons = Array.prototype.slice.call(optsEl.children);
-      if (item.__answered) return;
-      item.__answered = true;
-      answers.push({ itemIndex: index, selectedIndex: pickedIdx });
-      const isCorrect = pickedIdx === item.correctIndex;
-      if (isCorrect) score += item.points || 10;
-      buttons.forEach((b, i) => {
-        b.disabled = true;
-        if (i === item.correctIndex) b.classList.add('quiz-option-ok');
-        else if (i === pickedIdx) b.classList.add('quiz-option-bad');
-      });
-      feedbackEl.className = 'game-feedback ' + (isCorrect ? 'ok' : 'bad');
-      feedbackEl.textContent = isCorrect
-        ? (item.feedback ? item.feedback : ui.correct)
-        : (item.feedback ? item.feedback : ui.incorrect);
-    }
+    function renderStep() {
+      if (index >= game.entries.length) return renderEnd();
+      clear(stepMeta); clear(qEl); clear(optsBox); clear(feedbackEl); clear(footerEl);
+      buildTrack();
+      const entry = game.entries[index];
+      progressEl.textContent = ui.stop + ' ' + (index + 1) + ' / ' + game.entries.length;
+      labelP.textContent = entry.label || '';
+      sceneP.textContent = entry.detail || '';
+      stepMeta.appendChild(labelP);
+      stepMeta.appendChild(sceneP);
+      qEl.textContent = entry.question || '';
 
-    function finish() {
-      onFinish({ answers: answers, score: score });
-    }
-
-    renderQuestion();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Match / sort template
-  // ---------------------------------------------------------------------------
-  function renderMatch(box, game, ui, onFinish) {
-    const items = game.items;
-    const shLeft = shuffle(items.map((it, i) => ({ id: i, text: it.left })));
-    const shRight = shuffle(items.map((it, i) => ({ id: i, text: it.right })));
-
-    let selected = null;          // { btn, id }
-    let matched = 0;
-    const answers = [];
-    const matchedIds = {};
-
-    const colLeft = make('div', 'match-col');
-    const colRight = make('div', 'match-col');
-    const hint = make('p', 'match-hint', ui.matchLeft);
-    const progress = make('p', 'game-progress', '');
-    const stage = make('div', 'live');
-    const grid = make('div', 'match-grid');
-    grid.appendChild(colLeft);
-    grid.appendChild(colRight);
-    const footer = make('div', 'game-footer');
-    stage.appendChild(progress);
-    stage.appendChild(hint);
-    stage.appendChild(grid);
-    stage.appendChild(footer);
-    box.appendChild(stage);
-
-    const finishBtn = make('button', 'btn btn-primary', ui.finish);
-    finishBtn.disabled = true;
-    finishBtn.addEventListener('click', () => {
-      const score = answers.reduce((s, a) => s + (items[a.itemIndex] ? (items[a.itemIndex].points || 10) : 0), 0);
-      onFinish({ answers: answers, score: score });
-    });
-    footer.appendChild(finishBtn);
-
-    function updateProgress() {
-      progress.textContent = (items.length - matched) + ' ' + ui.matchLeftCount;
-    }
-
-    shLeft.forEach((item) => {
-      const b = make('button', 'match-card');
-      b.textContent = item.text;
-      b.addEventListener('click', () => {
-        if (selected) selected.btn.classList.remove('selected');
-        selected = { btn: b, id: item.id };
-        b.classList.add('selected');
-        hint.textContent = ui.matchRight;
-      });
-      colLeft.appendChild(b);
-    });
-
-    shRight.forEach((item) => {
-      const b = make('button', 'match-card');
-      b.textContent = item.text;
-      b.addEventListener('click', () => {
-        if (!selected || selected.id === undefined) {
-          if (!selected) hint.textContent = ui.matchLeft;
-          return;
-        }
-        if (matchedIds[item.id] === true) return;
-        if (selected.id === item.id) {
-          matchedIds[item.id] = true;
-          matched++;
-          selected.btn.classList.add('matched');
-          b.classList.add('matched');
-          answers.push({ itemIndex: selected.id, matchedRight: item.text });
-          selected = null;
-          hint.textContent = ui.matched + ' · ' + (items.length - matched) + ' ' + ui.matchLeftCount;
-          updateProgress();
-          if (matched === items.length) {
-            hint.textContent = ui.matched;
-            finishBtn.disabled = false;
-          }
-        } else {
-          b.classList.add('shake');
-          setTimeout(() => b.classList.remove('shake'), 400);
-          hint.textContent = ui.incorrect + ' ' + ui.matchRight;
-        }
-      });
-      colRight.appendChild(b);
-    });
-
-    updateProgress();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Fill-in-the-blank template
-  // ---------------------------------------------------------------------------
-  function renderFill(box, game, ui, onFinish) {
-    const answers = [];
-    let score = 0;
-    const stage = make('div', 'live');
-    box.appendChild(stage);
-
-    game.items.forEach((item, index) => {
-      const row = make('div', 'fill-row');
-      const p = make('div', 'game-question');
-      p.textContent = (item.prompt || '').replace(/_+/g, '___');
-      const input = make('input', 'fill-input');
-      input.setAttribute('type', 'text');
-      input.autocomplete = 'off';
-      const checkBtn = make('button', 'btn btn-primary btn-sm', ui.check);
-      const feedback = make('p', 'game-feedback small', '');
-      const bottom = make('div', 'fill-controls');
-      bottom.appendChild(input);
-      bottom.appendChild(checkBtn);
-      row.appendChild(p);
-      row.appendChild(bottom);
-      row.appendChild(feedback);
-      stage.appendChild(row);
-
-      const accepted = (Array.isArray(item.aliases) && item.aliases.length)
-        ? item.aliases : (item.answer ? [item.answer] : []);
-
-      let locked = false;
-      let submittedText = '';
-      checkBtn.addEventListener('click', () => {
-        const value = input.value || '';
-        if (locked) return;
-        submittedText = value;
-        const isCorrect = accepted.some((a) => eq(a, value));
+      const widget = buildOptions(entry.options, (pickedIdx, btn) => {
+        const isCorrect = pickedIdx === entry.correctIndex;
         if (isCorrect) {
-          locked = true;
-          score += item.points || 10;
-          input.disabled = true;
-          input.classList.add('fill-ok');
-          feedback.className = 'game-feedback ok';
-          feedback.textContent = (item.feedback ? item.feedback : ui.fillGood);
-          answers.push({ itemIndex: index, text: value });
+          widget.buttons.forEach((b, i) => { b.disabled = true; if (i === entry.correctIndex) b.classList.add('quiz-option-ok'); });
+          answers.push({ itemIndex: index, selectedIndex: pickedIdx });
+          clientScore += entry.points || 10;
+          feedbackEl.className = 'game-feedback ok';
+          feedbackEl.textContent = entry.feedback ? entry.feedback : ui.correct;
+          const nextBtn = finishBar(ui.advance);
+          nextBtn.addEventListener('click', () => { index++; renderStep(); });
+          footerEl.appendChild(nextBtn);
         } else {
-          feedback.className = 'game-feedback bad';
-          feedback.textContent = ui.fillAgain;
-          input.classList.add('shake');
-          setTimeout(() => input.classList.remove('shake'), 400);
-          answers.push({ itemIndex: index, text: value || null });
+          btn.classList.add('shake');
+          setTimeout(() => btn.classList.remove('shake'), 400);
+          feedbackEl.className = 'game-feedback bad';
+          feedbackEl.textContent = ui.retry;
         }
       });
-    });
+      optsBox.appendChild(widget.box);
+      const skipLbl = make('button', 'btn btn-ghost btn-sm', ui.skip);
+      skipLbl.addEventListener('click', () => {
+        answers.push({ itemIndex: index, selectedIndex: null });
+        index++;
+        renderStep();
+      });
+      footerEl.appendChild(skipLbl);
+    }
 
-    const footer = make('div', 'game-footer');
-    const finishBtn = make('button', 'btn btn-primary', ui.finish);
-    finishBtn.addEventListener('click', () => onFinish({ answers: answers, score: score }));
-    footer.appendChild(finishBtn);
-    stage.appendChild(footer);
+    function renderEnd() {
+      clear(stage);
+      const end = make('div', 'result-card result-pass');
+      end.appendChild(make('h2', '', game.ending || ui.missionComplete));
+      end.appendChild(make('p', 'big-score', ui.score + ': ' + clientScore + ' / ' + game.entries.length + ' ' + ui.answered));
+      stage.appendChild(end);
+      const fin = finishBar(ui.finish);
+      fin.addEventListener('click', () => onFinish({ answers: answers, score: clientScore }));
+      stage.appendChild(fin);
+    }
+
+    introScreen(box, game, ui, renderStep);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Template 2: challenge_quest — independent rounds, one attempt each,
+  // a trophy board tracks how many you mastered.
+  // ---------------------------------------------------------------------------
+  function renderQuest(box, game, ui, onFinish) {
+    const answers = [];
+    let index = 0;
+    let clientScore = 0;
+    let trophies = 0;
+
+    const stage = make('div', 'live');
+    box.appendChild(stage);
+
+    const board = make('div', 'quest-board');
+    const progressEl = make('p', 'game-progress', '');
+    const flavorP = make('p', 'entry-detail', '');
+    const qEl = make('div', 'game-question');
+    const optsBox = make('div', 'game-options');
+    const feedbackEl = make('div', 'game-feedback');
+    const footerEl = make('div', 'game-footer');
+
+    stage.appendChild(board);
+    stage.appendChild(progressEl);
+    stage.appendChild(flavorP);
+    stage.appendChild(qEl);
+    stage.appendChild(optsBox);
+    stage.appendChild(feedbackEl);
+    stage.appendChild(footerEl);
+
+    function renderBoard() {
+      clear(board);
+      const t = make('span', 'board-title', ui.questBoard);
+      board.appendChild(t);
+      game.entries.forEach((e, i) => {
+        const slot = make('span', 'quest-slot' + (i === index ? ' current' : ''));
+        const label = make('span', 'quest-slot-label', e.label || String(i + 1));
+        const cup = make('span', 'quest-cup' + (i < index ? ' earned' : ''));
+        cup.textContent = '★';
+        cup.title = ui.trophy;
+        slot.appendChild(label);
+        slot.appendChild(cup);
+        board.appendChild(slot);
+      });
+    }
+
+    function renderQuestAt(i) {
+      if (i >= game.entries.length) return renderEnd();
+      clear(flavorP); clear(qEl); clear(optsBox); clear(feedbackEl); clear(footerEl);
+      renderBoard();
+      const entry = game.entries[i];
+      progressEl.textContent = ui.questRound + ' ' + (i + 1) + ' / ' + game.entries.length;
+      if (entry.label) progressEl.textContent = (entry.label ? entry.label + ' · ' : '') + progressEl.textContent;
+      if (entry.detail) flavorP.textContent = entry.detail;
+      qEl.textContent = entry.question || '';
+
+      const widget = buildOptions(entry.options, (pickedIdx, btn) => {
+        const isCorrect = pickedIdx === entry.correctIndex;
+        widget.buttons.forEach((b, j) => {
+          b.disabled = true;
+          if (j === entry.correctIndex) b.classList.add('quiz-option-ok');
+          else if (j === pickedIdx) b.classList.add('quiz-option-bad');
+        });
+        answers.push({ itemIndex: i, selectedIndex: pickedIdx });
+        if (isCorrect) { clientScore += entry.points || 10; trophies++; }
+        feedbackEl.className = 'game-feedback ' + (isCorrect ? 'ok' : 'bad');
+        feedbackEl.textContent = entry.feedback ? entry.feedback : (isCorrect ? ui.correct : ui.incorrect);
+        const nextBtn = finishBar(i === game.entries.length - 1 ? ui.finish : ui.next);
+        nextBtn.addEventListener('click', () => { index = i + 1; renderQuestAt(index); });
+        footerEl.appendChild(nextBtn);
+      });
+      optsBox.appendChild(widget.box);
+      // after a skip the board just moves on, no trophy
+      const skipLbl = make('button', 'btn btn-ghost btn-sm', ui.skip);
+      skipLbl.addEventListener('click', () => {
+        answers.push({ itemIndex: i, selectedIndex: null });
+        index = i + 1;
+        renderQuestAt(index);
+      });
+      footerEl.appendChild(skipLbl);
+    }
+
+    function renderEnd() {
+      clear(stage);
+      const end = make('div', 'result-card result-pass');
+      end.appendChild(make('h2', '', ui.questBoard + ' — ' + trophies + ' ' + ui.trophy));
+      end.appendChild(make('p', 'big-score', ui.score + ': ' + clientScore + ' / ' + game.entries.length + ' ' + ui.answered));
+      stage.appendChild(end);
+      const fin = finishBar(ui.finish);
+      fin.addEventListener('click', () => onFinish({ answers: answers, score: clientScore }));
+      stage.appendChild(fin);
+    }
+
+    introScreen(box, game, ui, () => renderQuestAt(0));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Template 3: build_rescue — assemble parts to build / rescue a goal.
+  // Parts build up a progress bar; retries allowed until each part is placed.
+  // ---------------------------------------------------------------------------
+  function renderBuild(box, game, ui, onFinish) {
+    const answers = [];
+    let index = 0;
+    let clientScore = 0;
+    const skipped = {};
+
+    const stage = make('div', 'live');
+    box.appendChild(stage);
+
+    const goalBar = make('p', 'build-goal', (game.goal ? ui.goal + ': ' + game.goal : ''));
+    const buildTrack = make('div', 'build-track');
+    const progressEl = make('p', 'game-progress', '');
+    const partNameP = make('p', 'game-progress entry-label', '');
+    const partDetailP = make('p', 'entry-detail', '');
+    const qEl = make('div', 'game-question');
+    const optsBox = make('div', 'game-options');
+    const feedbackEl = make('div', 'game-feedback');
+    const footerEl = make('div', 'game-footer');
+
+    stage.appendChild(goalBar);
+    stage.appendChild(buildTrack);
+    stage.appendChild(progressEl);
+    stage.appendChild(partNameP);
+    stage.appendChild(partDetailP);
+    stage.appendChild(qEl);
+    stage.appendChild(optsBox);
+    stage.appendChild(feedbackEl);
+    stage.appendChild(footerEl);
+
+    function renderTrack() {
+      clear(buildTrack);
+      game.entries.forEach((e, i) => {
+        const seg = make('span', 'build-seg' + (i < index ? ' built' : i === index ? ' current' : ''));
+        seg.textContent = String(i + 1);
+        seg.title = e.label || '';
+        buildTrack.appendChild(seg);
+      });
+      buildTrack.appendChild(make('span', 'build-count', (index - Object.keys(skipped).length) + '/' + game.entries.length + ' ' + ui.parts));
+    }
+
+    function renderPart(i) {
+      if (i >= game.entries.length) return renderEnd();
+      clear(partNameP); clear(partDetailP); clear(qEl); clear(optsBox); clear(feedbackEl); clear(footerEl);
+      renderTrack();
+      const entry = game.entries[i];
+      progressEl.textContent = i + 1 + ' / ' + game.entries.length;
+      partNameP.textContent = entry.label || '';
+      partDetailP.textContent = entry.detail || '';
+      qEl.textContent = entry.question || '';
+
+      const widget = buildOptions(entry.options, (pickedIdx) => {
+        const isCorrect = pickedIdx === entry.correctIndex;
+        if (isCorrect) {
+          widget.buttons.forEach((b, j) => { b.disabled = true; if (j === entry.correctIndex) b.classList.add('quiz-option-ok'); });
+          answers.push({ itemIndex: i, selectedIndex: pickedIdx });
+          clientScore += entry.points || 10;
+          delete skipped[i];
+          feedbackEl.className = 'game-feedback ok';
+          feedbackEl.textContent = entry.feedback ? entry.feedback : ui.built;
+          const nextBtn = finishBar(i === game.entries.length - 1 ? ui.finish : ui.next);
+          nextBtn.addEventListener('click', () => { index = i + 1; renderPart(index); });
+          footerEl.appendChild(nextBtn);
+        } else {
+          widget.buttons.forEach((b, j) => {
+            if (j === pickedIdx) b.classList.add('shake');
+            setTimeout(() => b.classList.remove('shake'), 400);
+          });
+          feedbackEl.className = 'game-feedback bad';
+          feedbackEl.textContent = ui.retry;
+        }
+      });
+      optsBox.appendChild(widget.box);
+      const skipLbl = make('button', 'btn btn-ghost btn-sm', ui.skip);
+      skipLbl.addEventListener('click', () => {
+        answers.push({ itemIndex: i, selectedIndex: null });
+        skipped[i] = true;
+        index = i + 1;
+        renderPart(index);
+      });
+      footerEl.appendChild(skipLbl);
+    }
+
+    function renderEnd() {
+      clear(stage);
+      const end = make('div', 'result-card result-pass');
+      end.appendChild(make('h2', '', ui.assembled));
+      end.appendChild(make('p', 'big-score', ui.score + ': ' + clientScore + ' / ' + game.entries.length + ' ' + ui.answered));
+      stage.appendChild(end);
+      const fin = finishBar(ui.finish);
+      fin.addEventListener('click', () => onFinish({ answers: answers, score: clientScore }));
+      stage.appendChild(fin);
+    }
+
+    introScreen(box, game, ui, () => renderPart(0));
   }
 
   // ---------------------------------------------------------------------------
@@ -277,7 +429,7 @@
     }
     container.appendChild(header(game, ui));
 
-    if (!Array.isArray(game.items) || game.items.length === 0) {
+    if (TEMPLATES.indexOf(game.template) === -1 || !Array.isArray(game.entries) || game.entries.length === 0) {
       container.appendChild(make('p', 'muted', ui.notSupported));
       return;
     }
@@ -286,7 +438,6 @@
       if (typeof opts.onFinish === 'function') {
         opts.onFinish(result);
       } else {
-        // preview / fallback: show the score
         clear(container);
         container.appendChild(header(game, ui));
         const box = make('div', 'result-card result-pass');
@@ -296,9 +447,9 @@
     };
 
     try {
-      if (game.type === 'quiz') renderQuiz(container, game, ui, onFinish);
-      else if (game.type === 'match') renderMatch(container, game, ui, onFinish);
-      else if (game.type === 'fill') renderFill(container, game, ui, onFinish);
+      if (game.template === 'adventure_mission') renderAdventure(container, game, ui, onFinish);
+      else if (game.template === 'challenge_quest') renderQuest(container, game, ui, onFinish);
+      else if (game.template === 'build_rescue') renderBuild(container, game, ui, onFinish);
       else container.appendChild(make('p', 'muted', ui.notSupported));
     } catch (err) {
       clear(container);

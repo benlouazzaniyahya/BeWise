@@ -8,8 +8,8 @@ const { Child, Lesson, Game, Attempt, Progress, Badge } = require('../models');
 // ---------------------------------------------------------------------------
 
 function computeMaxScore(game) {
-  if (!game || !Array.isArray(game.items)) return 0;
-  return game.items.reduce((sum, it) => sum + (Number.isInteger(it.points) && it.points > 0 ? it.points : 10), 0);
+  if (!game || !Array.isArray(game.entries)) return 0;
+  return game.entries.reduce((sum, it) => sum + (Number.isInteger(it.points) && it.points > 0 ? it.points : 10), 0);
 }
 
 function cleanAnswers(submitted) {
@@ -24,6 +24,9 @@ function cleanAnswers(submitted) {
     }));
 }
 
+// All three fixed templates play as multiple-choice over a canonical
+// `entries` array. The server compares the submitted selectedIndex against
+// the stored correctIndex — never trusts a client-computed score.
 const eq = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 function gradeGame(game, submitted) {
@@ -33,25 +36,20 @@ function gradeGame(game, submitted) {
   let correctCount = 0;
   const details = [];
 
-  game.items.forEach((item, i) => {
+  (game.entries || []).forEach((item, i) => {
     const ans = answers.find((a) => a.itemIndex === i);
     let correct = false;
 
-    if (game.type === 'quiz') {
+    if (Array.isArray(item.options) && Number.isInteger(item.correctIndex)) {
       const picked = ans && ans.selectedIndex !== null ? ans.selectedIndex : null;
       correct = picked === item.correctIndex;
-      if (correct) { score += item.points; correctCount++; }
-    } else if (game.type === 'match') {
-      const picked = ans && ans.matchedRight ? ans.matchedRight : null;
-      correct = picked != null && eq(picked, item.right);
-      if (correct) { score += item.points; correctCount++; }
-    } else if (game.type === 'fill') {
+    } else {
       const picked = ans && ans.text ? ans.text : null;
-      const accepted = Array.isArray(item.aliases) && item.aliases.length ? item.aliases : [item.answer];
+      const accepted = Array.isArray(item.aliases) && item.aliases.length ? item.aliases : (item.answer ? [item.answer] : []);
       correct = picked != null && accepted.some((a) => eq(a, picked));
-      if (correct) { score += item.points; correctCount++; }
     }
 
+    if (correct) { score += Number.isInteger(item.points) && item.points > 0 ? item.points : 10; correctCount++; }
     details.push({ itemIndex: i, correct });
   });
 
@@ -59,7 +57,7 @@ function gradeGame(game, submitted) {
     score: Math.round(score),
     maxScore,
     correctCount,
-    totalItems: game.items.length,
+    totalItems: (game.entries || []).length,
     details,
     pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
   };
