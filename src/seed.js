@@ -190,7 +190,7 @@ function main() {
     const seedGames = [
       ['normale', 'male', numberQuest],
       ['normale', 'female', numberQuest],
-      ['normale', 'neutral', numberQuest],
+      ['autisme', 'female', simpleQuest],
       ['autisme', 'male', simpleQuest],
     ];
     for (const [variant, genderTheme, gameJson] of seedGames) {
@@ -220,15 +220,17 @@ function main() {
         { id: 'q4', question: 'When does the child do homework?', correct_answer: 'After school', distractors: ['Before breakfast', 'At midnight'] },
       ],
     };
-    const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'normale' AND gender_theme = 'neutral' AND status = 'approved'", lReading.id);
-    if (!readEx) {
-      run(
-        `INSERT INTO games (lesson_id, variant, gender_theme, status, template_type, game_json, static_version_json, notes, created_at, approved_at, approved_by)
-         VALUES (?, 'normale', 'neutral', 'approved', ?, ?, ?, ?, ?, ?, ?)`,
-        lReading.id, readingMission.template,
-        JSON.stringify(readingMission), JSON.stringify(deriveStaticVersion(readingMission)),
-        'seeded demo game', now(), now(), teacher1.id,
-      );
+    for (const readGender of ['male', 'female']) {
+      const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'normale' AND gender_theme = ? AND status = 'approved'", lReading.id, readGender);
+      if (!readEx) {
+        run(
+          `INSERT INTO games (lesson_id, variant, gender_theme, status, template_type, game_json, static_version_json, notes, created_at, approved_at, approved_by)
+           VALUES (?, 'normale', ?, 'approved', ?, ?, ?, ?, ?, ?, ?)`,
+          lReading.id, readGender, readingMission.template,
+          JSON.stringify(readingMission), JSON.stringify(deriveStaticVersion(readingMission)),
+          'seeded demo game', now(), now(), teacher1.id,
+        );
+      }
     }
 
     console.log('√ Bewize seeded.');

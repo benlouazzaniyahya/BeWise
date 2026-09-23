@@ -63,7 +63,7 @@ db.exec(`
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     lesson_id           INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
     variant             TEXT NOT NULL CHECK (variant IN ('normale','autisme','deficience_auditive')),
-    gender_theme        TEXT NOT NULL DEFAULT 'neutral' CHECK (gender_theme IN ('male','female','neutral')),
+    gender_theme        TEXT NOT NULL DEFAULT 'male' CHECK (gender_theme IN ('male','female')),
     status              TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','pending_review','approved','rejected')),
     template_type       TEXT NOT NULL,
     game_json           TEXT NOT NULL,

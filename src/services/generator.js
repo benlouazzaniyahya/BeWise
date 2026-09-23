@@ -11,7 +11,7 @@ const ai = require('./ai');
 const { Lesson, Subject, Game, Job } = require('../models');
 const { PROFILES, TEMPLATES } = require('../i18n');
 
-const GENDERS = ['neutral', 'male', 'female'];
+const GENDERS = ['male', 'female'];
 const VARIANTS = PROFILES;
 
 // Requeue runs that were interrupted (module load time, like the old routes).

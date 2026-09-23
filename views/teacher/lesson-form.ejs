@@ -47,13 +47,6 @@
         </div>
       </div>
 
-      <div class="row-2">
-        <div class="field">
-          <label for="order_index"><%= t('teacher.orderIndex') %></label>
-          <input id="order_index" name="order_index" type="number" value="<%= lesson ? lesson.order_index : 0 %>">
-        </div>
-      </div>
-
       <div class="field">
         <label for="raw_lesson_text"><%= t('teacher.content') %></label>
         <textarea id="raw_lesson_text" name="raw_lesson_text" rows="8" required placeholder="<%= t('teacher.contentPlaceholder') %>"><%= lesson ? lesson.raw_lesson_text : '' %></textarea>

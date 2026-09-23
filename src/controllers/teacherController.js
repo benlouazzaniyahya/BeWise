@@ -137,9 +137,9 @@ function lessonGenerate(req, res) {
     return res.redirect(`/teacher/lessons/${lesson.id}`);
   }
 
-  const chosen = req.body.genderTheme === 'both'
-    ? ['male', 'female']
-    : GENDERS.includes(req.body.genderTheme) ? [req.body.genderTheme] : ['neutral'];
+  const chosen = req.body.genderTheme === 'both' || !GENDERS.includes(req.body.genderTheme)
+    ? ['male']
+    : [req.body.genderTheme];
 
   const extraInstructions = String(req.body.extraInstructions || '').trim().slice(0, 1200);
   const difficultyHint = Number(req.body.difficultyHint) || lesson.level;
@@ -178,7 +178,7 @@ function lessonGenerateTriple(req, res) {
     return res.redirect(`/teacher/lessons/${lesson.id}`);
   }
 
-  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'male';
   const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
   const subject = Subject.findById(lesson.subject_id);
 
@@ -200,7 +200,7 @@ function triplePreview(req, res) {
   if (!lesson) return notFound(res);
   const subject = Subject.findById(lesson.subject_id);
   const variant = VARIANTS.includes(req.query.variant) ? req.query.variant : 'normale';
-  const genderTheme = GENDERS.includes(req.query.genderTheme) ? req.query.genderTheme : 'neutral';
+  const genderTheme = GENDERS.includes(req.query.genderTheme) ? req.query.genderTheme : 'male';
 
   // Latest pending_review game per template for THIS (lesson, variant, gender) combo.
   const games = {};
@@ -245,7 +245,7 @@ function tripleApprove(req, res) {
   const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
   if (!lesson) return notFound(res);
   const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
-  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'male';
   const teacherId = res.locals.user.id;
 
   // Approve the latest pending_review row of each template for this combo,
@@ -275,10 +275,10 @@ function tripleRegenerate(req, res) {
   if (!lesson) return notFound(res);
   if (Job.countActiveByLesson(lesson.id) > 0) {
     req.flash('error', t('teacher.generating'));
-    return res.redirect(`/teacher/lessons/${lesson.id}/triple-preview?variant=${req.body.variant || 'normale'}&genderTheme=${req.body.genderTheme || 'neutral'}`);
+    return res.redirect(`/teacher/lessons/${lesson.id}/triple-preview?variant=${req.body.variant || 'normale'}&genderTheme=${req.body.genderTheme || 'male'}`);
   }
   const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
-  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'male';
   const subject = Subject.findById(lesson.subject_id);
   generator.dispatch(lesson.id, [{
     triple: true,

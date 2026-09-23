@@ -32,7 +32,7 @@ function assert(cond, msg) {
     level: 'cp',
     lang: 'en',
     variant: 'normale',
-    genderTheme: 'neutral',
+    genderTheme: 'male',
     subjectName: 'english',
   });
 
@@ -83,7 +83,7 @@ function assert(cond, msg) {
     const id = Game.create({
       lessonId: lessonRow.id,
       variant: 'normale',
-      genderTheme: 'neutral',
+      genderTheme: 'male',
       templateType: tpl,
       gameJson: JSON.stringify(game),
       staticVersionJson: JSON.stringify(out.staticVersions[tpl]),
@@ -94,7 +94,7 @@ function assert(cond, msg) {
   assert(ids.length === 3, 'three game rows inserted for one combo');
   for (const tpl of ai.TEMPLATES) {
     const rows = Game.listByLesson(lessonRow.id).filter(
-      (g) => g.variant === 'normale' && g.gender_theme === 'neutral' && g.template_type === tpl,
+      (g) => g.variant === 'normale' && g.gender_theme === 'male' && g.template_type === tpl,
     );
     assert(rows.length === 1, `${tpl} row present and unique per combo`);
   }

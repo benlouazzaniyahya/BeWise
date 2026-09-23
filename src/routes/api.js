@@ -12,7 +12,7 @@ const { LANGS, PROFILES, TEMPLATES } = require('../i18n');
 
 const router = express.Router();
 
-const GENDER_THEMES = ['neutral', 'male', 'female'];
+const GENDER_THEMES = ['male', 'female'];
 
 function jsonGuard(req, res, next) {
   if (!res.locals.user) return res.status(401).json({ ok: false, message: 'Authentication required.' });
@@ -29,7 +29,7 @@ router.post('/games/generate', async (req, res) => {
   const level = typeof req.body.level === 'string' && req.body.level.trim() ? req.body.level.trim().slice(0, 24) : 'cp';
   const lang = LANGS.includes(req.body.lang) ? req.body.lang : 'en';
   const variant = PROFILES.includes(req.body.variant) ? req.body.variant : 'normale';
-  const genderTheme = GENDER_THEMES.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const genderTheme = GENDER_THEMES.includes(req.body.genderTheme) ? req.body.genderTheme : 'male';
   const subjectName = typeof req.body.subjectName === 'string' && req.body.subjectName ? req.body.subjectName : 'english';
   const template = TEMPLATES.includes(req.body.template) ? req.body.template : undefined;
 
@@ -85,7 +85,7 @@ router.post('/games/triple-generate', async (req, res) => {
   const level = typeof req.body.level === 'string' && req.body.level.trim() ? req.body.level.trim().slice(0, 24) : 'cp';
   const lang = LANGS.includes(req.body.lang) ? req.body.lang : 'en';
   const variant = PROFILES.includes(req.body.variant) ? req.body.variant : 'normale';
-  const genderTheme = GENDER_THEMES.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const genderTheme = GENDER_THEMES.includes(req.body.genderTheme) ? req.body.genderTheme : 'male';
   const subjectName = typeof req.body.subjectName === 'string' && req.body.subjectName ? req.body.subjectName : 'english';
 
   try {

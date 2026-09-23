@@ -439,7 +439,7 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
     : genderTheme === 'female'
       ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
-      : `GENDER THEME: neutral — appealing to everyone.`;
+      : `GENDER THEME: generic and balanced — appealing to everyone.`;
 
   const languageLine = lang === 'ar'
     ? 'Arabic (keep proper right-to-left text)'
@@ -549,7 +549,7 @@ function buildTriplePrompt(context) {
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
     : genderTheme === 'female'
       ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
-      : `GENDER THEME: neutral — appealing to everyone.`;
+      : `GENDER THEME: generic and balanced — appealing to everyone.`;
 
   const languageLine = lang === 'ar'
     ? 'Arabic (keep proper right-to-left text)'
@@ -1140,7 +1140,7 @@ function packSpec(game, staticVersion, note, ctx) {
   };
 }
 
-async function generateFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'neutral', subjectName = 'english', template, extraInstructions }) {
+async function generateFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'male', subjectName = 'english', template, extraInstructions }) {
   const lesson = lessonFromSpec({ lessonText, level });
   const result = await generateOne({
     lesson,
@@ -1181,7 +1181,7 @@ async function regenerateFromFeedback({ previousJson, feedbackInstructions }) {
     feedback: String(feedbackInstructions || '').trim().slice(0, 1200),
     lang: ctx.lang || 'en',
     variant: ctx.variant || 'normale',
-    genderTheme: ctx.genderTheme || 'neutral',
+    genderTheme: ctx.genderTheme || 'male',
     subjectName: ctx.subjectName || 'english',
   });
   return packSpec(result.game, result.staticVersion, result.note, {
@@ -1192,7 +1192,7 @@ async function regenerateFromFeedback({ previousJson, feedbackInstructions }) {
     school_level: lesson.school_level,
     lang: ctx.lang || 'en',
     variant: ctx.variant || 'normale',
-    genderTheme: ctx.genderTheme || 'neutral',
+    genderTheme: ctx.genderTheme || 'male',
     subjectName: ctx.subjectName || 'english',
   });
 }
@@ -1236,7 +1236,7 @@ function packTripleSpec(games, staticVersions, note, ctx) {
   };
 }
 
-async function generateTripleFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'neutral', subjectName = 'english', extraInstructions }) {
+async function generateTripleFromSpec({ lessonText, level, lang = 'en', variant = 'normale', genderTheme = 'male', subjectName = 'english', extraInstructions }) {
   const lesson = lessonFromSpec({ lessonText, level });
   const result = await generateThree({
     lesson,
@@ -1278,7 +1278,7 @@ async function regenerateTripleFromFeedback({ previousJson, feedbackInstructions
     feedback: String(feedbackInstructions || '').trim().slice(0, 1200),
     lang: ctx.lang || 'en',
     variant: ctx.variant || 'normale',
-    genderTheme: ctx.genderTheme || 'neutral',
+    genderTheme: ctx.genderTheme || 'male',
     subjectName: ctx.subjectName || 'english',
   });
   return packTripleSpec(result.games, result.staticVersions, result.note, {
@@ -1289,7 +1289,7 @@ async function regenerateTripleFromFeedback({ previousJson, feedbackInstructions
     school_level: lesson.school_level,
     lang: ctx.lang || 'en',
     variant: ctx.variant || 'normale',
-    genderTheme: ctx.genderTheme || 'neutral',
+    genderTheme: ctx.genderTheme || 'male',
     subjectName: ctx.subjectName || 'english',
   });
 }

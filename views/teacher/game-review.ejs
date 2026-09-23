@@ -7,8 +7,7 @@
       <h1><%= t('teacher.previewTitle') %> — <%= game.lesson_title %></h1>
       <p class="muted small">
         <%= t('teacher.templateType') %>: <strong><%= templateLabel(game.template_type) %></strong> ·
-        <%= t('teacher.variantNormal') %>/<%= t('teacher.variantAutism') %>/<%= t('teacher.variantHearing') %>: <strong><%= profileLabel(game.variant) %></strong> ·
-        <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[game.gender_theme]) %>
+        <%= t('teacher.variantNormal') %>/<%= t('teacher.variantAutism') %>/<%= t('teacher.variantHearing') %>: <strong><%= profileLabel(game.variant) %></strong>
         <span class="chip chip-<%= game.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[game.status]) %></span>
       </p>
     </div>
