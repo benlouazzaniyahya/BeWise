@@ -109,18 +109,21 @@
     return s;
   }
 
-  // Intro/gate screen shared by all templates.
-  function introScreen(parent, game, ui, onStart) {
-    clear(parent);
+  // Intro/gate screen rendered INSIDE the stage so the game content nodes stay
+  // attached to the document. On start it removes only itself, then renders.
+  function introScreen(stage, game, ui, onStart) {
     const box = make('div', 'live intro-box');
     if (game.intro) box.appendChild(make('p', 'game-intro', game.intro));
     if (game.template === 'build_rescue' && game.goal) {
       box.appendChild(make('p', 'build-goal', ui.goal + ': ' + game.goal));
     }
     const start = make('button', 'btn btn-primary btn-lg', ui.start);
-    start.addEventListener('click', onStart);
+    start.addEventListener('click', () => {
+      if (box.parentNode) box.parentNode.removeChild(box);
+      onStart();
+    });
     box.appendChild(start);
-    parent.appendChild(box);
+    stage.appendChild(box);
   }
 
   // ---------------------------------------------------------------------------
@@ -216,7 +219,7 @@
       stage.appendChild(fin);
     }
 
-    introScreen(box, game, ui, renderStep);
+    introScreen(stage, game, ui, renderStep);
   }
 
   // ---------------------------------------------------------------------------
@@ -311,7 +314,7 @@
       stage.appendChild(fin);
     }
 
-    introScreen(box, game, ui, () => renderQuestAt(0));
+    introScreen(stage, game, ui, () => renderQuestAt(0));
   }
 
   // ---------------------------------------------------------------------------
@@ -411,7 +414,7 @@
       stage.appendChild(fin);
     }
 
-    introScreen(box, game, ui, () => renderPart(0));
+    introScreen(stage, game, ui, () => renderPart(0));
   }
 
   // ---------------------------------------------------------------------------
