@@ -163,30 +163,28 @@ function main() {
     // ---- pre-approved games for lesson 1 (playable immediately) -----------
     const mathLessonId = l1.id;
     const numberQuest = {
-      template: 'challenge_quest',
+      template: 'airplane',
       title: 'Counting Challenge',
       theme: 'Space',
       instructions: 'Look at each question, read it slowly, and tap the right answer!',
-      intro: 'Win every round to fill your trophy shelf!',
-      entries: [
-        { label: 'Round 1', detail: '', question: 'How many legs does a dog have?', options: ['3', '4', '2'], correctIndex: 1, feedback: 'A dog has four legs.', points: 10 },
-        { label: 'Round 2', detail: '', question: 'How many days are there in one week?', options: ['5', '7', '6'], correctIndex: 1, feedback: 'There are seven days in a week.', points: 10 },
-        { label: 'Round 3', detail: '', question: 'How many wheels does a bicycle have?', options: ['2', '4', '1'], correctIndex: 0, feedback: 'A bicycle has two wheels.', points: 10 },
-        { label: 'Round 4', detail: '', question: 'Add: 2 + 2 = ?', options: ['3', '4', '5'], correctIndex: 1, feedback: '2 + 2 = 4.', points: 10 },
-        { label: 'Round 5', detail: '', question: 'Which number is bigger: 7 or 4?', options: ['4', '7'], correctIndex: 1, feedback: '7 is bigger than 4.', points: 10 },
-        { label: 'Round 6', detail: '', question: 'How many fingers are on two hands?', options: ['8', '10', '12'], correctIndex: 1, feedback: 'Each hand has 5 fingers, so two hands have 10.', points: 10 },
+      intro: 'Fly the plane and answer every question to land safely!',
+      questions: [
+        { id: 'q1', question: 'How many legs does a dog have?', correct_answer: '4', distractors: ['3', '2'] },
+        { id: 'q2', question: 'How many days are there in one week?', correct_answer: '7', distractors: ['5', '6'] },
+        { id: 'q3', question: 'How many wheels does a bicycle have?', correct_answer: '2', distractors: ['4', '1'] },
+        { id: 'q4', question: 'Add: 2 + 2 = ?', correct_answer: '4', distractors: ['3', '5'] },
       ],
     };
     const simpleQuest = {
-      template: 'challenge_quest',
+      template: 'airplane',
       title: 'Easy Counting',
       theme: 'Animals',
       instructions: 'Read and choose the right answer. You can do it!',
-      intro: 'Answer each round to win the quest!',
-      entries: [
-        { label: 'Round 1', detail: '', question: 'How many legs does a dog have?', options: ['4', '2'], correctIndex: 0, feedback: 'Yes, four legs.', points: 10 },
-        { label: 'Round 2', detail: '', question: 'How many days in a week?', options: ['7', '5'], correctIndex: 0, feedback: 'Seven days.', points: 10 },
-        { label: 'Round 3', detail: '', question: 'Add: 2 + 2 = ?', options: ['4', '3'], correctIndex: 0, feedback: '2 + 2 = 4.', points: 10 },
+      intro: 'Answer each question to fly the plane!',
+      questions: [
+        { id: 'q1', question: 'How many legs does a dog have?', correct_answer: '4', distractors: ['2', '3'] },
+        { id: 'q2', question: 'How many days in a week?', correct_answer: '7', distractors: ['5'] },
+        { id: 'q3', question: 'Add: 2 + 2 = ?', correct_answer: '4', distractors: ['3'] },
       ],
     };
     const seedGames = [
@@ -210,17 +208,16 @@ function main() {
 
     // ---- pre-approved game for the CM1 reading lesson (sara can play) -----
     const readingMission = {
-      template: 'adventure_mission',
+      template: 'airplane',
       title: 'My School Day',
       theme: 'School',
-      instructions: 'Follow the story and answer each question to advance!',
+      instructions: 'Read each question and answer to fly the plane!',
       intro: 'Every day the child wakes up, packs a bag and goes to school. Help the day unfold!',
-      ending: 'The school day is complete. Great job!',
-      entries: [
-        { label: 'Morning', detail: 'The child wakes up and gets ready.', question: 'What time does the child get up?', options: ["At seven o'clock", 'At noon', 'After school'], correctIndex: 0, feedback: 'The text says the child gets up at seven.', points: 15 },
-        { label: 'School', detail: 'Time to start the morning.', question: 'When does school start?', options: ['At ten', 'At eight', 'At six'], correctIndex: 1, feedback: 'School starts at eight.', points: 15 },
-        { label: 'Class', detail: 'Lessons and fun in the classroom.', question: 'What do they do at school?', options: ['Fly', 'Sleep', 'Read, count and play'], correctIndex: 2, feedback: 'They read, count and play at school.', points: 15 },
-        { label: 'Home', detail: 'After school, more things to do.', question: 'When does the child do homework?', options: ['Before breakfast', 'After school', 'At midnight'], correctIndex: 1, feedback: 'After school the child does homework, then plays outside.', points: 15 },
+      questions: [
+        { id: 'q1', question: 'What time does the child get up?', correct_answer: "At seven o'clock", distractors: ['At noon', 'After school'] },
+        { id: 'q2', question: 'When does school start?', correct_answer: 'At eight', distractors: ['At ten', 'At six'] },
+        { id: 'q3', question: 'What do they do at school?', correct_answer: 'Read, count and play', distractors: ['Fly', 'Sleep'] },
+        { id: 'q4', question: 'When does the child do homework?', correct_answer: 'After school', distractors: ['Before breakfast', 'At midnight'] },
       ],
     };
     const readEx = get("SELECT * FROM games WHERE lesson_id = ? AND variant = 'normale' AND gender_theme = 'neutral' AND status = 'approved'", lReading.id);

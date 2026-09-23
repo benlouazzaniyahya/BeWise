@@ -4,9 +4,12 @@
 // AI game generation + strict validation.
 //
 // - The game library is FIXED: exactly three reusable templates
-//   (adventure_mission, challenge_quest, build_rescue) shipped in
+//   (airplane, whack_a_mole, flying_fruit) shipped in
 //   public/js/game-lib.js. The AI NEVER creates new UI or new templates — it
 //   only fills structured content for one of these three templates.
+// - The AI obeys a STRICT JSON contract (metadata + games.<template>), see
+//   SYSTEM_PROMPT. Validation normalizes the output into a canonical game
+//   object stored in games.game_json.
 // - Calls OpenRouter (OpenAI-compatible chat completions) when
 //   OPENROUTER_API_KEY is present.
 // - Otherwise falls back to a deterministic OFFLINE generator so the whole
@@ -18,11 +21,15 @@
 
 const { gradeBand, TEMPLATES } = require('../i18n');
 
-const ENTRY_KEYS = { adventure_mission: 'steps', challenge_quest: 'quests', build_rescue: 'parts' };
 const MAX_ATTEMPTS = 3;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const SYSTEM_PROMPT = 'You are a careful author of educational mini-games for children aged 5 to 15. '
+// Entry/size caps — the AI can never flood a game with content.
+const MAX_QUESTIONS = 8;
+const MAX_TILES = 12;
+
+const SYSTEM_PROMPT = 'You are an expert game designer of rich, engaging 2D educational mini-games for children aged 5 to 15. '
+  + 'Your goal is to weave educational lessons into highly creative, fun storylines so kids love playing them. '
   + 'You always reply with exactly one valid JSON object and nothing else. '
   + 'No markdown fences, no commentary, no trailing text.';
 
@@ -71,10 +78,12 @@ const str = (v, fb) => (typeof v === 'string' && v.trim() ? v.trim() : fb);
 
 // ---------------------------------------------------------------------------
 // Validation of the strict AI JSON contract (one of the 3 fixed templates).
-// Normalizes steps/quests/parts into a canonical `entries` array so grading,
-// rendering and the static version all use one shared shape.
+// Accepts either the full spec shape `{ metadata, games: { <template> } }`
+// (exactly ONE game inside) or a direct per-template object.
+// Normalizes every template into a canonical object used by grading,
+// rendering and the static version.
 // ---------------------------------------------------------------------------
-function validateGameJson(raw) {
+function validateGameJson(raw, targetLang) {
   const errors = [];
   let obj;
   try {
@@ -87,91 +96,175 @@ function validateGameJson(raw) {
     return { ok: false, game: null, errors: ['response is not a JSON object'] };
   }
 
-  if (!TEMPLATES.includes(obj.template)) {
-    errors.push(`template must be one of ${TEMPLATES.join(', ')} (new templates are never allowed)`);
+  // --- extract the single game payload -------------------------------------
+  let core = obj;
+  let meta = null;
+  if (obj.games && typeof obj.games === 'object' && !Array.isArray(obj.games)) {
+    const keys = Object.keys(obj.games).filter((k) => TEMPLATES.includes(k));
+    if (keys.length > 1) errors.push(`"games" must contain EXACTLY one template (found: ${keys.join(', ')})`);
+    if (keys.length === 0) errors.push(`"games" must contain one of ${TEMPLATES.join(', ')}`);
+    core = keys.length === 1 ? obj.games[keys[0]] : obj.games[obj.template] || null;
+    meta = obj.metadata && typeof obj.metadata === 'object' ? obj.metadata : null;
   }
-  if (typeof obj.theme !== 'string' || !obj.theme.trim()) errors.push('theme is required');
-  if (typeof obj.instructions !== 'string' || !obj.instructions.trim()) errors.push('instructions is required');
 
   const safety = safetyCheck(obj);
   const hasSafety = !!safety;
   if (hasSafety) errors.push(`age-appropriateness/safety: ${safety}`);
 
-  if (errors.length) return { ok: false, game: null, errors };
-
-  const template = obj.template;
-  const arrayKey = ENTRY_KEYS[template] || 'entries';
-  const rawList = Array.isArray(obj[arrayKey]) ? obj[arrayKey]
-    : Array.isArray(obj.entries) ? obj.entries
-      : null;
-
-  if (!rawList || rawList.length < 1) {
-    errors.push(`"${arrayKey}" must be a non-empty array`);
+  if (!core || typeof core !== 'object' || Array.isArray(core)) {
+    errors.push(`missing game payload for one of ${TEMPLATES.join(', ')}`);
     return { ok: false, game: null, errors };
   }
 
-  const entries = [];
-  rawList.forEach((item, i) => {
-    if (!item || typeof item !== 'object') {
-      errors.push(`${arrayKey}[${i}] is not an object`);
-      return;
-    }
-    const label = str(item.name, str(item.label, str(item.quest, str(item.part, str(item.stop, `${i + 1}`)))));
-    const detail = str(item.scene, str(item.detail, str(item.prompt, '')));
-    const question = str(item.question, '');
-    const options = Array.isArray(item.options) ? item.options.map((o) => str(o, '')).filter(Boolean) : [];
-    let cIdx = Number.isInteger(item.correctIndex) ? item.correctIndex : null;
-    const points = Number.isInteger(item.points) && item.points > 0 ? item.points : 10;
-    const feedback = str(item.feedback, '');
-
-    if (!question) errors.push(`${arrayKey}[${i}]: question required`);
-    if (options.length < 2) errors.push(`${arrayKey}[${i}]: at least 2 options required`);
-    if (cIdx === null || cIdx < 0 || cIdx >= options.length) {
-      errors.push(`${arrayKey}[${i}]: correctIndex must point into options`);
-    }
-
-    entries.push({ label, detail, question, options, correctIndex: cIdx, feedback, points });
-  });
-
-  if (!hasSafety) {
-    const safe2 = safetyCheck({ template, entries });
-    if (safe2) errors.push(`age-appropriateness/safety: ${safe2}`);
+  const template = str(core.template, obj.games ? Object.keys(obj.games).find((k) => TEMPLATES.includes(k)) : '');
+  if (TEMPLATES.indexOf(template) === -1) {
+    errors.push(`template must be one of ${TEMPLATES.join(', ')} (new templates are never allowed)`);
   }
+  if (typeof obj.theme === 'string' && obj.theme.trim()) core.theme = obj.theme.trim();
 
-  const dupMsgs = errors.filter((e) => e.startsWith('blocked')).length;
-  if (hasSafety && dupMsgs === 0) errors.push(`age-appropriateness/safety: ${safety}`);
+  if (typeof core.instructions !== 'string' || !core.instructions.trim()) {
+    errors.push('"instructions" is required (one kid-friendly instruction line)');
+  }
 
   if (errors.length) return { ok: false, game: null, errors };
 
-  const game = {
-    template,
-    title: str(obj.title, ''),
-    theme: obj.theme.trim(),
-    instructions: obj.instructions.trim(),
-    intro: str(obj.intro, ''),
-    entries,
-  };
-  if (template === 'adventure_mission') game.ending = str(obj.ending, '');
-  if (template === 'build_rescue') game.goal = str(obj.goal, '');
+  let game = null;
+  try {
+    game = normalizeTemplate(template, core, errors, targetLang);
+  } catch {
+    return { ok: false, game: null, errors };
+  }
+  if (game === null || errors.length) return { ok: false, game: null, errors };
+
+  if (meta && (str(meta.lesson_title, '') || str(meta.target_level, ''))) {
+    game.meta = {};
+    if (str(meta.lesson_title, '')) game.meta.lesson_title = str(meta.lesson_title, '');
+    if (str(meta.target_level, '')) game.meta.target_level = str(meta.target_level, '');
+  }
+
+  if (!hasSafety) {
+    const safe2 = safetyCheck(game);
+    if (safe2) errors.push(`age-appropriateness/safety: ${safe2}`);
+  }
+
+  if (errors.length) return { ok: false, game: null, errors };
 
   return { ok: true, game, staticVersion: deriveStaticVersion(game), errors };
+}
+
+// canonical per-template construction ---------------------------------------
+function normalizeTemplate(template, core, errors, targetLang) {
+  const lang = (targetLang || 'en').toLowerCase();
+
+  if (template === 'airplane') {
+    const rawList = Array.isArray(core.questions) ? core.questions : [];
+    if (!rawList.length) errors.push('"questions" must be a non-empty array');
+    if (rawList.length > MAX_QUESTIONS) {
+      errors.push(`too many questions (max ${MAX_QUESTIONS}) — keep them short and essential`);
+    }
+    const questions = [];
+    rawList.forEach((q, i) => {
+      if (!q || typeof q !== 'object') { errors.push(`questions[${i}] is not an object`); return; }
+      const question = str(q.question, '');
+      const correct = str(q.correct_answer, (Array.isArray(q.options) ? q.options[q.correctIndex] : ''));
+      const distractors = (Array.isArray(q.distractors) ? q.distractors : [])
+        .map((d) => str(d, ''))
+        .filter(Boolean)
+        .filter((d) => d.toLowerCase() !== correct.toLowerCase());
+      if (!question) errors.push(`questions[${i}]: "question" is required`);
+      if (!correct) errors.push(`questions[${i}]: "correct_answer" is required`);
+      if (!distractors.length) errors.push(`questions[${i}]: at least 2 "distractors" required`);
+      if (distractors.length < 2) {
+        const extra = [correct === 'oui' ? 'non' : `[${correct}?]`, `${correct}!`];
+        for (const d of extra) {
+          if (d.toLowerCase() !== correct.toLowerCase() && !distractors.includes(d) && distractors.length < 3) distractors.push(d);
+        }
+        if (distractors.length < 2) errors.push(`questions[${i}]: at least 2 "distractors" required`);
+      }
+      if (!question || !correct) return;
+      questions.push({
+        id: str(q.id, `q${i + 1}`),
+        question,
+        correct_answer: correct,
+        distractors: distractors.slice(0, 4),
+      });
+    });
+    if (!questions.length && !errors.length) errors.push('"questions" must be a non-empty array');
+    return baseGame(template, core, {
+      questions,
+      _count: questions.length,
+      _min: 1, _max: MAX_QUESTIONS, _label: 'questions', errors, lang,
+    });
+  }
+
+  const isMole = template === 'whack_a_mole';
+  const listKey = isMole ? 'targets' : 'items';
+  const promptKey = isMole ? 'prompt' : 'category_prompt';
+  const rawList = Array.isArray(core[listKey]) ? core[listKey] : [];
+  if (!rawList.length) errors.push(`"${listKey}" must be a non-empty array`);
+  if (rawList.length > MAX_TILES) errors.push(`too many tiles (max ${MAX_TILES})`);
+
+  const prompt = str(core[promptKey], core.instructions, '');
+  if (isMole) {
+    if (typeof core.prompt !== 'string' || !core.prompt.trim()) errors.push('"prompt" is required (what the child must look for)');
+    if (!errors.length && !prompt) errors.push('"prompt" is required');
+  } else if (typeof core.category_prompt !== 'string' || !core.category_prompt.trim()) {
+    errors.push('"category_prompt" is required (which category to catch)');
+  }
+
+  const items = [];
+  rawList.forEach((t, i) => {
+    if (!t || typeof t !== 'object') { errors.push(`${listKey}[${i}] is not an object`); return; }
+    const text = str(t.text, '');
+    if (!text) { errors.push(`${listKey}[${i}]: "text" is required`); return; }
+    items.push({ text, is_correct: Boolean(t.is_correct) });
+  });
+  const corrects = items.filter((t) => t.is_correct).length;
+  const wrongs = items.length - corrects;
+  if (corrects < 1) errors.push(`at least one ${isMole ? 'target' : 'item'} must be "is_correct": true`);
+  if (wrongs < 1) errors.push(`at least one ${isMole ? 'target' : 'item'} must be "is_correct": false`);
+
+  return baseGame(template, core, {
+    [promptKey]: prompt,
+    [listKey]: items,
+    _promptKey: promptKey,
+    _count: items.length, _min: 2, _max: MAX_TILES, _label: listKey, errors, lang,
+  });
+}
+
+function baseGame(template, core, shape) {
+  const { errors, lang } = shape;
+  const game = {
+    template,
+    title: str(core.title, ''),
+    theme: str(core.theme, ''),
+    instructions: str(core.instructions, 'Play and learn!'),
+    intro: str(core.intro, ''),
+  };
+  if (template === 'airplane') game.questions = shape.questions;
+  else game[shape._promptKey] = shape[shape._promptKey];
+  game[shape._label] = shape[shape._label];
+  return game;
 }
 
 // ---------------------------------------------------------------------------
 // Derive a plain read-through (static, non-game) version from game JSON.
 // ---------------------------------------------------------------------------
 function deriveStaticVersion(game) {
+  if (!game) return { sections: [] };
   const sections = [{ title: game.title || game.instructions || 'Game', body: game.intro || '' }];
-  (game.entries || []).forEach((e, i) => {
-    const ans = e.options && e.options[e.correctIndex] ? e.options[e.correctIndex] : '';
-    const label = `${i + 1}. ${e.label ? `${e.label} — ` : ''}${e.question}`;
-    sections.push({ title: label, body: `→ ${ans}` + (e.feedback ? ` — ${e.feedback}` : '') });
-  });
-  if (game.template === 'adventure_mission' && game.ending) {
-    sections.push({ title: game.ending, body: '' });
-  }
-  if (game.template === 'build_rescue' && game.goal) {
-    sections.push({ title: game.goal, body: '' });
+
+  if (game.template === 'airplane') {
+    (game.questions || []).forEach((q, i) => {
+      sections.push({ title: `${i + 1}. ${q.question}`, body: `→ ${q.correct_answer}` });
+    });
+  } else {
+    const list = game.questions ? game.questions : (game.targets || game.items || []);
+    const head = game.template === 'flying_fruit' ? game.category_prompt : game.prompt;
+    if (head) sections.push({ title: head, body: '' });
+    list.forEach((t, i) => {
+      sections.push({ title: `${i + 1}. ${t.text}`, body: t.is_correct ? '✔ correct' : '✘ not correct' });
+    });
   }
   return { sections };
 }
@@ -265,68 +358,73 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
       ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
       : `GENDER THEME: neutral — appealing to everyone.`;
 
+  const languageLine = lang === 'ar'
+    ? 'Arabic (keep proper right-to-left text)'
+    : lang === 'fr' ? 'French' : 'English';
+
   const templateChoice = template
-    ? `Use EXACTLY this template: "${template}".\n`
-    : `Choose the template that best fits this lesson and the student profile: adventure_mission (a story journey, best for reading/structures), challenge_quest (independent rounds, best for drill/practice), build_rescue (assemble parts to rescue/build, best for vocabulary/steps).\n`;
+    ? `Use EXACTLY this template: "${template}". Only include THAT template inside the "games" object.\n`
+    : `Choose the template that best fits this lesson and the student profile: airplane (question-answer drilling, best for math and grammar practice), whack_a_mole (pick the right words/actions, best for vocabulary and identification), flying_fruit (catch the items that belong to a category, best for sorting and classification). Only include the chosen template inside the "games" object.\n`;
 
-  const schema =
-    'The game library is FIXED. You can only fill structured content for ONE of these 3 templates — you never invent a new template or a new layout:\n'
-    + '\n'
-    + '1) adventure_mission — a short story journey. Output JSON:\n'
-    + '{\n'
-    + '  "template": "adventure_mission",\n'
-    + '  "title": "short game title",\n'
-    + '  "theme": "one short theme word",\n'
-    + '  "instructions": "one kid-friendly instruction line",\n'
-    + '  "intro": "opening narrative line(s)",\n'
-    + '  "ending": "closing narrative line(s)",\n'
-    + '  "steps": [\n'
-    + '    { "name": "stop name", "scene": "short narrative of this moment", "question": "...", "options": ["a","b","c"], "correctIndex": 0, "feedback": "one-line explainer", "points": 10 }\n'
-    + '  ]\n'
-    + '}\n'
-    + '\n'
-    + '2) challenge_quest — independent rounds. Output JSON:\n'
-    + '{\n'
-    + '  "template": "challenge_quest",\n'
-    + '  "title": "short game title",\n'
-    + '  "theme": "one short theme word",\n'
-    + '  "instructions": "one kid-friendly instruction line",\n'
-    + '  "intro": "opening line(s)",\n'
-    + '  "quests": [\n'
-    + '    { "name": "Round N · skill", "detail": "optional short flavor", "question": "...", "options": ["a","b","c"], "correctIndex": 0, "feedback": "one-line explainer", "points": 10 }\n'
-    + '  ]\n'
-    + '}\n'
-    + '\n'
-    + '3) build_rescue — assemble parts to build or rescue something. Output JSON:\n'
-    + '{\n'
-    + '  "template": "build_rescue",\n'
-    + '  "title": "short game title",\n'
-    + '  "theme": "one short theme word",\n'
-    + '  "instructions": "one kid-friendly instruction line",\n'
-    + '  "intro": "opening line(s)",\n'
-    + '  "goal": "what is being built or rescued",\n'
-    + '  "parts": [\n'
-    + '    { "name": "part name", "detail": "what this part does or where it goes", "question": "...", "options": ["a","b","c"], "correctIndex": 0, "feedback": "one-line explainer", "points": 10 }\n'
-    + '  ]\n'
-    + '}';
+  // The STRICT output contract (exact spec).
+  const contract = `You must return exactly one valid JSON object with this structure:
 
-  let prompt = `Create a learning game for children in the ${lang === 'ar' ? 'Arabic (keep proper right-to-left text)' : lang === 'fr' ? 'French' : 'English'} language. ALL content below must be written in ${lang === 'ar' ? 'Arabic' : lang === 'fr' ? 'French' : 'English'}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\n${templateChoice}\nLESSON (subject: ${subjectName}):\nTitle: ${lesson.title}\nContent:\n${lesson.raw_lesson_text}\n`;
+{
+  "metadata": {
+    "lesson_title": "the lesson title",
+    "target_level": "the target grade/level"
+  },
+  "games": {
+    "<template>": { ... }
+  }
+}
+
+The "games" object contains EXACTLY ONE key: the template you are filling.
+
+Template 1 — "airplane": Fly a plane and answer questions. Each question is a multiple choice with one correct answer and two or three distractors:
+{
+  "instructions": "one kid-friendly instruction line",
+  "questions": [
+    { "id": "q1", "question": "the question", "correct_answer": "the one correct answer", "distractors": ["wrong option 1", "wrong option 2"] }
+  ]
+}
+
+Template 2 — "whack_a_mole": Moles pop up; the child must whack ONLY the correct ones and leave the wrong ones alone:
+{
+  "instructions": "one kid-friendly instruction line",
+  "prompt": "what the child must look for (e.g. 'Whack the words that begin with the letter b')",
+  "targets": [
+    { "text": "some word or phrase", "is_correct": true },
+    { "text": "another word or phrase", "is_correct": false }
+  ]
+}
+
+Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child must CATCH the ones that belong to a category and avoid the others:
+{
+  "instructions": "one kid-friendly instruction line",
+  "category_prompt": "which category to catch (e.g. 'Catch the fruits')",
+  "items": [
+    { "text": "some word or phrase", "is_correct": true },
+    { "text": "another word or phrase", "is_correct": false }
+  ]
+}`;
+
+  let prompt = `Create a learning game for children in the ${languageLine} language. ALL content below must be written in ${languageLine}. Age range: ${ageMin}-${ageMax} (lesson level ${baseLevel}). Difficulty requested: ${actualLevel} (scale 1=easiest to 5=hardest).\n\n${variantLine}\n${themeLine}\n${templateChoice}\nAdapt the following LESSON into a fun, vibrant 2D game storyline. Be highly creative with the questions, words, themes and characters.\nLESSON (subject: ${subjectName}):\nTitle: ${lesson.title}\nContent:\n${lesson.raw_lesson_text}\n`;
 
   if (mode === 'fix') {
-    prompt += `\nThe teacher wants the game REDONE. Apply their instructions. Keep the SAME template unless the teacher explicitly asks for a different one. Output the FULL corrected JSON object only. Never add text outside the JSON.\n\nCurrent game JSON:\n${JSON.stringify(currentGame, null, 1)}\n\nTeacher\'s instructions for the redo:\n${feedback}\n`;
+    prompt += `\nThe teacher wants the game REDONE. Apply their instructions. Keep the SAME template unless the teacher explicitly asks for a different one. Output the FULL corrected JSON object only. Never add text outside the JSON.\n\nCurrent game JSON:\n${JSON.stringify(currentGame, null, 1)}\n\nTeacher's instructions for the redo:\n${feedback}\n`;
   } else if (extraInstructions && extraInstructions.trim()) {
     prompt += `\nEXTRA INSTRUCTIONS FROM THE TEACHER:\n${extraInstructions.trim()}\n`;
   }
-  prompt += `\nReturn exactly one JSON object matching this STRICT contract. ${schema}\n`
+  prompt += `\nReturn exactly one JSON object matching this STRICT contract. ${contract}\n`
     + `Requirements:\n`
-    + `- Keep the template EXACTLY as specified above (or the current game's template on a redo).\n`
-    + `- Entry count: 4 for normal profile, 3 for autism, 3 to 4 for hearing impairment. No more than 4 entries.\n`
-    + `- Keep EVERY field short (scenes and feedback one line each). No extra keys, no prose outside the JSON object.\n`
+    + `- The "games" object contains EXACTLY one template. When auto, choose the template that fits the lesson best.\n`
+    + `- Question count: 4 for a normal profile, 3 for autism, 3 to 4 for hearing impairment. No more than 4 questions.\n`
+    + `- For whack_a_mole and flying_fruit: 6-12 tiles (fewer for autism), with at least 2 correct and at least 2 wrong tiles.\n`
+    + `- Keep EVERY short field to one line. No extra keys, no prose outside the JSON object.\n`
     + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
-    + `- Each entry has exactly one unambiguous correct answer (correctIndex inside options).\n`
-    + `- 3 to 4 plausible options per entry, short and clear.\n`
-    + `- "feedback" is a one-line explainer shown after answering.\n`
-    + `- Use the template fields exactly as shown. The child never sees "steps", "quests" or "parts" JSON keys — only the game experience.`;
+    + `- Distractors must be plausible but clearly different from the correct answer.`
+    + `- The child never sees JSON keys — only the game experience.`;
   return prompt;
 }
 
@@ -367,40 +465,28 @@ function shuffleArr(arr) {
 }
 
 function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
-  const count = variant === 'autisme' ? 4 : 6;
+  const count = variant === 'autisme' ? 3 : 4;
   const theme = genderTheme === 'male' ? 'Space' : genderTheme === 'female' ? 'Nature' : 'Fun';
   const intro = lesson.title;
   const staticSections = [];
-
-  const wrap = (template, title, instructions, introText, entries) => {
-    const game = { template, title, theme, instructions, intro: introText, entries };
-    if (template === 'adventure_mission') game.ending = `${intro} — journey complete!`;
-    if (template === 'build_rescue') game.goal = `${intro} — build it to finish`;
-    return game;
-  };
+  const instructions = `${intro} — ${variant === 'autisme' ? 'simple practice' : 'practice'}`;
 
   if (subjectName === 'math') {
     const rnd = (seed) => { const x = Math.sin(seed * 9973) * 10000; return Math.floor((x - Math.floor(x)) * 9) + 1; };
-    const entries = Array.from({ length: count }, (_, i) => {
+    const questions = Array.from({ length: count }, (_, i) => {
       const a = rnd((lesson.id || 1) * 7 + i * 3 + 1);
       const b = rnd((lesson.id || 1) * 13 + i * 5 + 2);
       const op = i % 2 === 0 ? '+' : '-';
       const x = Math.max(a, b);
       const y = Math.min(a, b);
       const result = op === '+' ? a + b : x - y;
-      const distractors = new Set([result, result + 1, result + 2, result - 1].filter((n) => n >= 0));
-      const options = [...distractors].map(String);
-      while (options.length < 3) options.push(String(options.length + 9));
-      const correctIndex = options.indexOf(String(result));
+      const distractors = [...new Set([result + 1, result + 2, result - 1].filter((n) => n >= 0 && n !== result))].map(String);
+      while (distractors.length < 2) distractors.push(String(Number(distractors[distractors.length - 1] || result) + 1 + distractors.length));
       const question = op === '+' ? `${a} + ${b} = ?` : `${x} - ${y} = ?`;
       staticSections.push({ title: `${i + 1}. ${question}`, body: `→ ${result}` });
-      return {
-        label: `Round ${i + 1}`, detail: '',
-        question, options, correctIndex,
-        feedback: `${question.replace(' = ?', '')} = ${result}`, points: 10,
-      };
+      return { id: `q${i + 1}`, question, correct_answer: String(result), distractors: distractors.slice(0, 3) };
     });
-    const game = wrap('challenge_quest', intro, `${intro} — ${variant === 'autisme' ? 'simple math' : 'math practice'}`, 'Answer each round to win the quest!', entries);
+    const game = { template: 'airplane', title: intro, theme, instructions, intro: 'Answer each question to fly the plane!', questions };
     return { game, staticVersion: { sections: staticSections.length ? staticSections : deriveStaticVersion(game).sections } };
   }
 
@@ -415,22 +501,18 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
     keywords.push({ sent, kw });
   });
 
-  const entries = keywords.slice(0, Math.min(count, keywords.length)).map((k, i) => {
-    const firstIdx = k.sent.toLowerCase().indexOf(k.kw.toLowerCase());
-    const blanked = firstIdx >= 0
-      ? k.sent.slice(0, firstIdx) + '__' + k.sent.slice(firstIdx + k.kw.length)
-      : k.sent.replace(/_+/g, '__');
-    const opts = [k.kw, ...pickDistractors(k.kw, keywords.map((x) => x.kw), lang, 3)].slice(0, 4);
-    const correctIndex = opts.indexOf(k.kw);
-    staticSections.push({ title: `${i + 1}. ${blanked}`, body: `→ ${k.kw}` });
-    return {
-      label: `Stop ${i + 1}`, detail: k.sent,
-      question: blanked, options: opts, correctIndex,
-      feedback: k.sent, points: 10,
-    };
-  });
+  const trueWords = keywords.slice(0, Math.min(count, keywords.length)).map((k) => k.kw);
+  const wrongPool = keywords.map((k) => k.sent).join(' ').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length >= 3 && !trueWords.includes(w));
+  const falseWords = [...new Set([...pickDistractors('', wrongPool, lang, 4), ...(NUMBER_WORDS[lang] ? Object.values(NUMBER_WORDS[lang]) : [])])]
+    .filter((w) => !trueWords.includes(w))
+    .slice(0, 4);
 
-  const game = wrap('adventure_mission', intro, `${intro} — read and choose`, 'Follow the story and answer each question to advance!', entries);
+  const targets = [
+    ...trueWords.map((text) => ({ text, is_correct: true })),
+    ...falseWords.map((text) => ({ text, is_correct: false })),
+  ];
+
+  const game = { template: 'whack_a_mole', title: intro, theme, instructions, intro: 'Find the words that belong to the lesson!', prompt: 'Whack the words you learned in this lesson.', targets };
   return {
     game,
     staticVersion: { sections: staticSections.length ? staticSections : deriveStaticVersion(game).sections },
@@ -517,94 +599,79 @@ async function fixGame({ lesson, game, feedback, lang, variant, genderTheme, sub
 }
 
 // ---------------------------------------------------------------------------
-// Migration support: convert a legacy quiz/match/fill game (old game_json)
-// into one of the 3 fixed templates so existing approved games keep working.
+// Migration support: convert an older game_json into one of the 3 fixed
+// templates so already-approved games keep working. Handles the previous
+// 3-template canonical shape (entries with options/correctIndex) and the
+// legacy quiz/match/fill games, mapping them all onto "airplane".
 // ---------------------------------------------------------------------------
+const OLD_TEMPLATES = ['adventure_mission', 'challenge_quest', 'build_rescue'];
+
+function toAirplane({ title, theme, instructions, intro, ending, goal, entries, items }) {
+  const src = Array.isArray(entries) ? entries : (Array.isArray(items) ? items : []);
+  const questions = [];
+  src.forEach((e, i) => {
+    if (!e || typeof e !== 'object') return;
+    let question = str(e.question, '');
+    let correct = '';
+    let distractors = [];
+    if (Array.isArray(e.options) && Number.isInteger(e.correctIndex)) {
+      const opts = e.options.map((o) => String(o).trim()).filter(Boolean);
+      const cIdx = e.correctIndex >= 0 && e.correctIndex < opts.length ? e.correctIndex : -1;
+      if (cIdx >= 0) {
+        correct = opts[cIdx];
+        distractors = opts.filter((_, j) => j !== cIdx);
+      }
+    } else {
+      question = str(e.question, e.left ? `Match: ${e.left}` : (e.prompt ? `Complete: ${e.prompt.replace(/_+/g, '___')}` : ''));
+      correct = str(e.answer, str(e.right, ''));
+      distractors = (Array.isArray(e.aliases) ? e.aliases : []).map((a) => String(a).trim()).filter(Boolean);
+      if (!distractors.length) distractors = src.map((x) => str(x.right, '')).filter((r) => r && r.toLowerCase() !== correct.toLowerCase()).slice(0, 3);
+    }
+    if (!question) question = `Question ${i + 1}`;
+    if (!correct) return;
+    while (distractors.length < 2) distractors.push(`${correct}?`);
+    questions.push({
+      id: str(e.id, `q${i + 1}`),
+      question,
+      correct_answer: correct,
+      distractors: distractors.slice(0, 4),
+    });
+  });
+  if (!questions.length) return null;
+
+  const game = {
+    template: 'airplane',
+    title: str(title, theme, ''),
+    theme: str(theme, ''),
+    instructions: str(instructions, 'Read each question and pick the right answer!'),
+    intro: str(intro, ''),
+    questions,
+  };
+  if (ending) game.meta = { ending };
+  if (goal) game.meta = { goal };
+  return { game, staticVersion: deriveStaticVersion(game) };
+}
+
 function convertLegacyGame(json) {
   if (!json || typeof json !== 'object') return null;
-  if (TEMPLATES.includes(json.template)) {
+
+  // Already one of the new templates? Re-validate it.
+  if (TEMPLATES.indexOf(json.template) !== -1) {
     const v = validateGameJson(json);
     return v.ok ? { game: v.game, staticVersion: v.staticVersion } : null;
   }
 
-  const base = (template) => ({ template, title: '', theme: str(json.theme, 'Fun'), instructions: str(json.instructions, 'Play the game!'), intro: '', entries: [] });
-
-  if (json.type === 'quiz') {
-    const items = (Array.isArray(json.items) ? json.items : []).filter((it) => it && typeof it === 'object');
-    const game = base('challenge_quest');
-    game.title = str(json.theme, '').length ? `${str(json.theme, '')}` : '';
-    game.intro = str(json.instructions, '');
-    items.forEach((it, i) => {
-      const opts = (Array.isArray(it.options) ? it.options : []).map((o) => String(o).trim()).filter(Boolean);
-      const cIdx = Number.isInteger(it.correctIndex) ? it.correctIndex : 0;
-      game.entries.push({
-        label: `Round ${i + 1}`,
-        detail: '',
-        question: str(it.question, ''),
-        options: opts,
-        correctIndex: cIdx >= 0 && cIdx < opts.length ? cIdx : 0,
-        feedback: str(it.feedback, ''),
-        points: Number.isInteger(it.points) && it.points > 0 ? it.points : 10,
-      });
-    });
-    return game.entries.length ? { game, staticVersion: deriveStaticVersion(game) } : null;
+  // The previous fixed-template canonical shape (entries with options).
+  if (OLD_TEMPLATES.indexOf(json.template) !== -1) {
+    const converted = toAirplane(json);
+    if (converted && json.ending) converted.game.meta = { ...(converted.game.meta || {}), ending: json.ending };
+    if (converted && json.goal) converted.game.meta = { ...(converted.game.meta || {}), goal: json.goal };
+    return converted;
   }
 
-  if (json.type === 'match') {
-    const items = (Array.isArray(json.items) ? json.items : []).filter((it) => it && typeof it === 'object');
-    const rights = items.map((it) => str(it.right, '')).filter(Boolean);
-    const pool = shuffleArr(rights);
-    const game = base('adventure_mission');
-    game.title = str(json.theme, '') || '';
-    game.intro = str(json.instructions, '');
-    items.forEach((it, i) => {
-      const left = str(it.left, '');
-      const right = str(it.right, '');
-      if (!left || !right) return;
-      const opts = pool.length >= 2 ? shuffleArr(pool) : [right, `${right}?`, `${right}!!`];
-      let cIdx = opts.findIndex((o) => o.toLowerCase() === right.toLowerCase());
-      if (cIdx === -1) { opts.push(right); cIdx = opts.length - 1; }
-      game.entries.push({
-        label: left,
-        detail: `Tap the matching word for «${left}»`,
-        question: `Match: ${left}`,
-        options: opts,
-        correctIndex: cIdx,
-        feedback: `${left} ↔ ${right}`,
-        points: 10,
-      });
-    });
-    if (!game.entries.length) return null;
-    game.ending = `${str(json.theme, '')} — match complete!`;
-    return { game, staticVersion: deriveStaticVersion(game) };
-  }
-
-  if (json.type === 'fill') {
-    const items = (Array.isArray(json.items) ? json.items : []).filter((it) => it && typeof it === 'object');
-    const game = base('build_rescue');
-    game.title = str(json.theme, '') || '';
-    game.intro = str(json.instructions, '');
-    items.forEach((it, i) => {
-      const prompt = str(it.prompt, '');
-      const answer = str(it.answer, '');
-      if (!prompt || !answer) return;
-      const aliases = (Array.isArray(it.aliases) ? it.aliases : []).filter((a) => typeof a === 'string' && a.trim()).map((a) => a.trim());
-      const opts = shuffleArr([answer, ...aliases.filter((a) => a.toLowerCase() !== answer.toLowerCase()), ...pickDistractors(answer, aliases, 'en', 3)].slice(0, 4));
-      let cIdx = opts.findIndex((o) => o.toLowerCase() === answer.toLowerCase());
-      if (cIdx === -1) { opts.push(answer); cIdx = opts.length - 1; }
-      game.entries.push({
-        label: `Part ${i + 1}`,
-        detail: prompt,
-        question: `Complete: ${prompt.replace(/_+/g, '___')}`,
-        options: opts,
-        correctIndex: cIdx,
-        feedback: `→ ${answer}`,
-        points: 10,
-      });
-    });
-    if (!game.entries.length) return null;
-    game.goal = `${str(json.theme, '')} — assembled!`;
-    return { game, staticVersion: deriveStaticVersion(game) };
+  // Legacy quiz / match / fill games.
+  if (json.type === 'quiz' || json.type === 'match' || json.type === 'fill') {
+    return toAirplane(json);
   }
 
   return null;
@@ -614,6 +681,7 @@ module.exports = {
   TEMPLATES,
   validateGameJson,
   deriveStaticVersion,
+  generateOffline,
   generateOne,
   fixGame,
   convertLegacyGame,

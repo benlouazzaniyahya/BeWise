@@ -8,8 +8,23 @@ const { Child, Lesson, Game, Attempt, Progress, Badge } = require('../models');
 // ---------------------------------------------------------------------------
 
 function computeMaxScore(game) {
-  if (!game || !Array.isArray(game.entries)) return 0;
-  return game.entries.reduce((sum, it) => sum + (Number.isInteger(it.points) && it.points > 0 ? it.points : 10), 0);
+  if (!game) return 0;
+  // airplane: every question counts.
+  if (Array.isArray(game.questions)) {
+    return game.questions.reduce((sum, it) => sum + (Number.isInteger(it.points) && it.points > 0 ? it.points : 10), 0);
+  }
+  // whack_a_mole / flying_fruit: only the correct targets award points.
+  if (Array.isArray(game.targets)) {
+    return game.targets.reduce((sum, it) => sum + (it.is_correct ? (Number.isInteger(it.points) && it.points > 0 ? it.points : 10) : 0), 0);
+  }
+  if (Array.isArray(game.items)) {
+    return game.items.reduce((sum, it) => sum + (it.is_correct ? (Number.isInteger(it.points) && it.points > 0 ? it.points : 10) : 0), 0);
+  }
+  // legacy fallback (entries with options)
+  if (Array.isArray(game.entries)) {
+    return game.entries.reduce((sum, it) => sum + (Number.isInteger(it.points) && it.points > 0 ? it.points : 10), 0);
+  }
+  return 0;
 }
 
 function cleanAnswers(submitted) {
@@ -19,14 +34,15 @@ function cleanAnswers(submitted) {
     .map((a) => ({
       itemIndex: Number.isInteger(a.itemIndex) ? a.itemIndex : -1,
       selectedIndex: Number.isInteger(a.selectedIndex) ? a.selectedIndex : null,
+      selected: typeof a.selected === 'string' ? a.selected.trim() : null,
       matchedRight: typeof a.matchedRight === 'string' ? a.matchedRight.trim() : null,
+      tapped: a.tapped === true,
       text: typeof a.text === 'string' ? a.text.trim() : null,
     }));
 }
 
-// All three fixed templates play as multiple-choice over a canonical
-// `entries` array. The server compares the submitted selectedIndex against
-// the stored correctIndex — never trusts a client-computed score.
+// The server compares real answers against the stored game_json — it never
+// trusts a client-computed score.
 const eq = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 function gradeGame(game, submitted) {
@@ -36,8 +52,42 @@ function gradeGame(game, submitted) {
   let correctCount = 0;
   const details = [];
 
+  const findAns = (i) => answers.find((a) => a.itemIndex === i);
+
+  // airplane — multiple choice, compared by answer text.
+  if (Array.isArray(game.questions)) {
+    game.questions.forEach((q, i) => {
+      const ans = findAns(i);
+      const picked = ans && ans.selected ? ans.selected : null;
+      const correct = picked != null && eq(picked, q.correct_answer);
+      if (correct) {
+        score += Number.isInteger(q.points) && q.points > 0 ? q.points : 10;
+        correctCount++;
+      }
+      details.push({ itemIndex: i, correct });
+    });
+    return { score: Math.round(score), maxScore, correctCount, totalItems: game.questions.length, details, pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0 };
+  }
+
+  // whack_a_mole / flying_fruit — tap the right ones, avoid the wrong ones.
+  const tapList = game.targets || game.items || null;
+  if (Array.isArray(tapList)) {
+    tapList.forEach((item, i) => {
+      const ans = findAns(i);
+      const tapped = ans ? ans.tapped : false;
+      const correct = item.is_correct ? tapped : !tapped;
+      const pts = Number.isInteger(item.points) && item.points > 0 ? item.points : 10;
+      if (tapped) score += item.is_correct ? pts : -pts;
+      if (correct) correctCount++;
+      details.push({ itemIndex: i, correct, tapped });
+    });
+    if (score < 0) score = 0;
+    return { score: Math.round(score), maxScore, correctCount, totalItems: tapList.length, details, pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0 };
+  }
+
+  // legacy fallback (entries with options)
   (game.entries || []).forEach((item, i) => {
-    const ans = answers.find((a) => a.itemIndex === i);
+    const ans = findAns(i);
     let correct = false;
 
     if (Array.isArray(item.options) && Number.isInteger(item.correctIndex)) {

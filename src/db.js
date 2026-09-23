@@ -144,19 +144,24 @@ for (const l of db.prepare("SELECT id, level FROM lessons WHERE school_level IS 
 }
 
 // ---------------------------------------------------------------------------
-// Migration: legacy games (old quiz/match/fill game_json) → the fixed 3
-// template architecture. Runs on boot so already-approved games stay
-// playable and reviewable after the template refactor.
+// Migration: every game is stored under one of the 3 FIXED templates
+// (airplane, whack_a_mole, flying_fruit). On boot we scan ALL games and
+// convert anything that is not already in a valid new-template form
+// (previous 3-template games and legacy quiz/match/fill) so approved games
+// stay playable and reviewable after the template refactor.
 // ---------------------------------------------------------------------------
 {
-  const { convertLegacyGame, deriveStaticVersion } = require('./services/ai');
-  const legacy = db.prepare('SELECT id, game_json FROM games WHERE template_type NOT IN (?, ?, ?)')
-    .all('adventure_mission', 'challenge_quest', 'build_rescue');
+  const { TEMPLATES, validateGameJson, convertLegacyGame, deriveStaticVersion } = require('./services/ai');
+  const rows = db.prepare('SELECT id, game_json, template_type FROM games').all();
   const saveGame = db.prepare('UPDATE games SET game_json = ?, template_type = ?, static_version_json = ?, notes = COALESCE(notes, ?) WHERE id = ?');
-  for (const row of legacy) {
+  for (const row of rows) {
     let parsed = null;
     try { parsed = JSON.parse(row.game_json); } catch { /* skip malformed */ }
-    if (!parsed) continue;
+    if (!parsed || typeof parsed !== 'object') continue;
+    if (TEMPLATES.includes(parsed.template)) {
+      const v = validateGameJson(parsed);
+      if (v.ok) continue; // already a valid new-template game
+    }
     const converted = convertLegacyGame(parsed);
     if (!converted) continue;
     saveGame.run(
