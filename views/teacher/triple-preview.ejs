@@ -1,5 +1,5 @@
 <%- include('../partials/head') %>
-<% if (busy) { %><meta http-equiv="refresh" content="5"><% } %>
+<% if (busyTriple) { %><meta http-equiv="refresh" content="5"><% } %>
 <%- include('../partials/nav') %>
 <main class="wrap page">
   <div class="page-head">
@@ -15,6 +15,12 @@
     </div>
     <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>"><%= t('teacher.viewLessons') %></a>
   </div>
+
+  <% if (busyTriple) { %>
+    <div class="flash flash-success"><%= t('teacher.tripleGenerating') %></div>
+  <% } else if (tripleFailed) { %>
+    <div class="flash flash-error"><%= t('teacher.tripleFailed', { reason: tripleFailed.slice(0, 240) }) %></div>
+  <% } %>
 
   <%
     const LABELS = { airplane: '🛩️ Airplane', whack_a_mole: '🔨 Whack-A-Mole', flying_fruit: '🍉 Flying Fruit' };
@@ -51,7 +57,7 @@
         </div>
         <script type="application/json" id="game-data-<%= tpl %>"><%- pubRow.game_json.replace(/</g, '\\u003c') %></script>
       <% } else { %>
-        <p class="muted small">—</p>
+        <p class="muted small"><%= busyTriple ? t('teacher.tripleWorking') : '—' %></p>
       <% } %>
     </div>
   <% }); %>

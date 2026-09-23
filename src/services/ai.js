@@ -330,6 +330,9 @@ async function callModel(prompt, options) {
   };
   if (options.responseFormat) body.response_format = { type: 'json_object' };
 
+  const timeoutMs = options.timeoutMs || 60000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const resp = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -339,7 +342,9 @@ async function callModel(prompt, options) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal: controller.signal,
   });
+  clearTimeout(timer);
 
   if (!resp.ok) {
     let detail = '';

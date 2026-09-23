@@ -219,11 +219,24 @@ function triplePreview(req, res) {
 
   const jobs = Job.listByLesson(lesson.id);
   const busy = jobs.some((j) => j.status === 'pending' || j.status === 'running');
+  // Track the triple-pack jobs scoped to THIS (variant, gender) combo so we can
+  // show "generating…" or a helpful failure banner instead of silent empty rows.
+  const tripleJobs = jobs.filter((j) => {
+    if (j.status !== 'pending' && j.status !== 'running' && j.status !== 'failed') return false;
+    if (!j.payload) return false;
+    try {
+      const p = JSON.parse(j.payload);
+      return p.triple === true && p.variant === variant && p.genderTheme === genderTheme;
+    } catch (e) { return false; }
+  });
+  const busyTriple = tripleJobs.some((j) => j.status === 'pending' || j.status === 'running');
+  const lastTriple = tripleJobs[tripleJobs.length - 1];
+  const tripleFailed = lastTriple && lastTriple.status === 'failed' ? (lastTriple.error || '') : '';
 
   res.render('teacher/triple-preview', {
     page: 'teacher', titleKey: 'teacher.tripleTitle', lesson, subject,
     subject_label: subjectLabel(res.locals.lang, subject.name),
-    variant, genderTheme, games, approved, jobs, busy, t, GENDERS, VARIANTS,
+    variant, genderTheme, games, approved, jobs, busy, busyTriple, tripleFailed, t, GENDERS, VARIANTS,
   });
 }
 
