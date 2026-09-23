@@ -1,0 +1,118 @@
+<%- include('../partials/head') %>
+<% if (busy) { %><meta http-equiv="refresh" content="5"><% } %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small">
+        <%= t('teacher.forSubject') %> <%= subject_label %> ·
+        <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> ·
+        <%= t('teacher.profile') %>: <%= profileLabel(variant) %> ·
+        <%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[genderTheme]) %>
+      </p>
+      <h1><%= t('teacher.tripleTitle') %> — <%= lesson.title %></h1>
+      <p class="muted"><%= t('teacher.tripleSub') %></p>
+    </div>
+    <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>"><%= t('teacher.viewLessons') %></a>
+  </div>
+
+  <%
+    const LABELS = { airplane: '🛩️ Airplane', whack_a_mole: '🔨 Whack-A-Mole', flying_fruit: '🍉 Flying Fruit' };
+    const ORDER  = ['airplane', 'whack_a_mole', 'flying_fruit'];
+    const anyPending = ORDER.some((k) => games[k]);
+  %>
+
+  <% if (!anyPending) { %>
+    <div class="card empty">
+      <%= t('teacher.tripleEmpty') %>
+    </div>
+  <% } %>
+
+  <% ORDER.forEach(function(tpl) { %>
+    <% var row = games[tpl]; var pubRow = approved[tpl]; %>
+    <div class="card">
+      <div class="page-head" style="align-items:flex-start;">
+        <h2 style="margin:0"><%= LABELS[tpl] %></h2>
+        <% if (row) { %>
+          <span class="chip chip-pending_review"><%= t('teacher.triplePending') %></span>
+        <% } %>
+      </div>
+
+      <% if (row) { %>
+        <div class="game-stage" data-game-stage data-template="<%= tpl %>">
+          <p class="small muted"><%= t('teacher.triplePreviewEach') %></p>
+          <div id="game-preview-<%= tpl %>"></div>
+        </div>
+        <script type="application/json" id="game-data-<%= tpl %>"><%- row.game_json.replace(/</g, '\\u003c') %></script>
+      <% } else if (pubRow) { %>
+        <p class="small muted"><%= t('teacher.tripleApprovedNote') %></p>
+        <div class="game-stage" data-game-stage data-template="<%= tpl %>">
+          <div id="game-preview-<%= tpl %>"></div>
+        </div>
+        <script type="application/json" id="game-data-<%= tpl %>"><%- pubRow.game_json.replace(/</g, '\\u003c') %></script>
+      <% } else { %>
+        <p class="muted small">—</p>
+      <% } %>
+    </div>
+  <% }); %>
+
+  <% if (anyPending) { %>
+    <div class="card">
+      <h2><%= t('teacher.tripleApproveAll') %></h2>
+      <form action="/teacher/lessons/<%= lesson.id %>/triple-approve" method="post">
+        <input type="hidden" name="variant" value="<%= variant %>">
+        <input type="hidden" name="genderTheme" value="<%= genderTheme %>">
+        <% ORDER.forEach(function(tpl) { if (games[tpl]) { %>
+          <input type="hidden" name="gameIds[]" value="<%= games[tpl].id %>">
+        <% } }); %>
+        <button class="btn btn-success" type="submit"><%= t('teacher.tripleApproveAll') %></button>
+      </form>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= t('teacher.tripleRegenerate') %></h2>
+    <form action="/teacher/lessons/<%= lesson.id %>/triple-regenerate" method="post">
+      <div class="row-2">
+        <div class="field">
+          <label for="triple-variant"><%= t('teacher.profile') %></label>
+          <select id="triple-variant" name="variant">
+            <% VARIANTS.forEach(function(v) { %>
+              <option value="<%= v %>" <%= v === variant ? 'selected' : '' %>><%= profileLabel(v) %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="triple-genderTheme"><%= t('teacher.genderTheme') %></label>
+          <select id="triple-genderTheme" name="genderTheme">
+            <% GENDERS.forEach(function(g) { %>
+              <option value="<%= g %>" <%= g === genderTheme ? 'selected' : '' %>><%= t({male:'teacher.boys',female:'teacher.girls',neutral:'teacher.neutral'}[g]) %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="triple-extraInstructions"><%= t('teacher.extraInstructions') %></label>
+        <input id="triple-extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+      </div>
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.tripleRegenerate') %></button>
+      <% if (busy) { %><span class="muted small"><%= t('teacher.generating') %></span><% } %>
+    </form>
+  </div>
+</main>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    ['airplane','whack_a_mole','flying_fruit'].forEach(function (tpl) {
+      var stage = document.querySelector('[data-game-stage][data-template="' + tpl + '"]');
+      if (!stage || !window.Bewize) return;
+      var dataEl = document.getElementById('game-data-' + tpl);
+      if (!dataEl) return;
+      try {
+        var game = JSON.parse(dataEl.textContent);
+        var mount = stage.querySelector('#game-preview-' + tpl);
+        window.Bewize.previewGame(mount, game);
+      } catch (e) { /* ignore */ }
+    });
+  });
+</script>
+<%- include('../partials/foot') %>

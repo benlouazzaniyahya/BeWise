@@ -24,8 +24,49 @@ async function processJob(job) {
     const lesson = Lesson.findById(job.lesson_id);
     const subject = Subject.findById(lesson.subject_id);
 
-    // clean older non-approved games for this combo before inserting the fresh one
-    Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme);
+    // clean older non-approved games for this combo before inserting fresh
+    // ones. For triple jobs, that means wiping any rows that match
+    // (lesson, variant, gender) AND template_type — for non-triple jobs it
+    // still wipes the whole combo since deleteNonApprovedForCombo with no
+    // templateType defaults to the full match.
+    if (payload.triple) {
+      for (const tpl of TEMPLATES) {
+        Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, tpl);
+      }
+    } else {
+      Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, payload.template || null);
+    }
+
+    if (payload.triple) {
+      // One AI call, three rows (airplane + whack_a_mole + flying_fruit) for
+      // the same (lesson, variant, gender). Unique index covers template_type
+      // so all three rows can sit alongside each other in pending_review.
+      const result = await ai.generateThree({
+        lesson,
+        subjectName: subject.name,
+        variant: payload.variant,
+        genderTheme: payload.genderTheme,
+        lang: payload.lang || 'en',
+        extraInstructions: payload.extraInstructions,
+        difficultyHint: payload.difficultyHint,
+      });
+      const ids = [];
+      for (const tpl of TEMPLATES) {
+        const game = result.games[tpl];
+        if (!game) continue;
+        ids.push(Game.create({
+          lessonId: lesson.id,
+          variant: payload.variant,
+          genderTheme: payload.genderTheme,
+          templateType: tpl,
+          gameJson: JSON.stringify(game),
+          staticVersionJson: JSON.stringify(result.staticVersions && result.staticVersions[tpl] || ai.deriveStaticVersion(game)),
+          notes: (result.note || '') + ' [triple-pack]',
+        }));
+      }
+      Job.setDone(job.id, ids.join(','));
+      return;
+    }
 
     const template = TEMPLATES.includes(payload.template) ? payload.template : undefined;
 

@@ -166,6 +166,120 @@ function lessonGenerate(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// TRIPLE-pack generation + review (one AI call fills all 3 templates at once)
+// ---------------------------------------------------------------------------
+function lessonGenerateTriple(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+
+  if (Job.countActiveByLesson(lesson.id) > 0) {
+    req.flash('error', t('teacher.generating'));
+    return res.redirect(`/teacher/lessons/${lesson.id}`);
+  }
+
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
+  const subject = Subject.findById(lesson.subject_id);
+
+  generator.dispatch(lesson.id, [{
+    triple: true,
+    variant,
+    genderTheme,
+    lang: Subject.defaultLanguage(subject.name),
+    extraInstructions: String(req.body.extraInstructions || '').trim().slice(0, 1200),
+    difficultyHint: Number(req.body.difficultyHint) || lesson.level,
+  }]);
+  req.flash('success', t('teacher.tripleStarted'));
+  res.redirect(`/teacher/lessons/${lesson.id}/triple-preview?variant=${encodeURIComponent(variant)}&genderTheme=${encodeURIComponent(genderTheme)}`);
+}
+
+function triplePreview(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  const subject = Subject.findById(lesson.subject_id);
+  const variant = VARIANTS.includes(req.query.variant) ? req.query.variant : 'normale';
+  const genderTheme = GENDERS.includes(req.query.genderTheme) ? req.query.genderTheme : 'neutral';
+
+  // Latest pending_review game per template for THIS (lesson, variant, gender) combo.
+  const games = {};
+  for (const tpl of TEMPLATES) {
+    const row = Game.listByLesson(lesson.id).filter((g) => g.status === 'pending_review' && g.variant === variant && g.gender_theme === genderTheme && g.template_type === tpl);
+    games[tpl] = row.length ? row[row.length - 1] : null;
+  }
+
+  // Also pull any approved rows for the same combo so the teacher can see
+  // the live/published version per template alongside the pending one.
+  const approved = {};
+  for (const tpl of TEMPLATES) {
+    const row = Game.listByLesson(lesson.id).filter((g) => g.status === 'approved' && g.variant === variant && g.gender_theme === genderTheme && g.template_type === tpl);
+    approved[tpl] = row.length ? row[row.length - 1] : null;
+  }
+
+  const jobs = Job.listByLesson(lesson.id);
+  const busy = jobs.some((j) => j.status === 'pending' || j.status === 'running');
+
+  res.render('teacher/triple-preview', {
+    page: 'teacher', titleKey: 'teacher.tripleTitle', lesson, subject,
+    subject_label: subjectLabel(res.locals.lang, subject.name),
+    variant, genderTheme, games, approved, jobs, busy, t, GENDERS, VARIANTS,
+  });
+}
+
+function tripleApprove(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const teacherId = res.locals.user.id;
+
+  // Approve the latest pending_review row of each template for this combo,
+  // demote any previously approved siblings for the same combo+template.
+  // The body may include a list of specific game ids; if absent, we approve
+  // the most recent pending row per template.
+  const wanted = Array.isArray(req.body.gameIds) ? req.body.gameIds.map((v) => Number(v)).filter(Boolean) : null;
+  let approvedCount = 0;
+  for (const tpl of TEMPLATES) {
+    const candidates = Game.listByLesson(lesson.id)
+      .filter((g) => g.status === 'pending_review' && g.variant === variant && g.gender_theme === genderTheme && g.template_type === tpl);
+    const row = (wanted && wanted.length ? candidates.find((g) => wanted.includes(g.id)) : null) || (candidates.length ? candidates[candidates.length - 1] : null);
+    if (!row) continue;
+    Game.approve(row.id, teacherId);
+    Game.demoteApprovedExcept(lesson.id, variant, genderTheme, row.id, row.template_type);
+    approvedCount += 1;
+  }
+  req.flash(approvedCount ? 'success' : 'error', approvedCount
+    ? t('teacher.tripleApproved', { count: approvedCount })
+    : t('teacher.tripleNothingToApprove'));
+  res.redirect(`/teacher/lessons/${lesson.id}`);
+}
+
+function tripleRegenerate(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  if (Job.countActiveByLesson(lesson.id) > 0) {
+    req.flash('error', t('teacher.generating'));
+    return res.redirect(`/teacher/lessons/${lesson.id}/triple-preview?variant=${req.body.variant || 'normale'}&genderTheme=${req.body.genderTheme || 'neutral'}`);
+  }
+  const variant = VARIANTS.includes(req.body.variant) ? req.body.variant : 'normale';
+  const genderTheme = GENDERS.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const subject = Subject.findById(lesson.subject_id);
+  generator.dispatch(lesson.id, [{
+    triple: true,
+    variant,
+    genderTheme,
+    lang: Subject.defaultLanguage(subject.name),
+    extraInstructions: String(req.body.extraInstructions || '').trim().slice(0, 1200),
+    difficultyHint: Number(req.body.difficultyHint) || lesson.level,
+  }]);
+  req.flash('success', t('teacher.tripleStarted'));
+  res.redirect(`/teacher/lessons/${lesson.id}/triple-preview?variant=${encodeURIComponent(variant)}&genderTheme=${encodeURIComponent(genderTheme)}`);
+}
+
+// ---------------------------------------------------------------------------
 // Single-game review / approval actions
 // ---------------------------------------------------------------------------
 function gamePreview(req, res) {
@@ -189,10 +303,11 @@ function gameApprove(req, res) {
   const game = Game.findReviewById(Number(req.params.id));
   if (!game || game.teacher_id !== res.locals.user.id) return notFound(res);
   // Approve the new game first, then demote the previous approved version for
-  // this combo (adaptive boosters survive). Order matters: the partial unique
-  // index allows only ONE non-approved game per (lesson, variant, gender).
+  // this combo + template (adaptive boosters survive). Order matters: the
+  // partial unique index allows only ONE non-approved game per
+  // (lesson, variant, gender, template_type).
   Game.approve(game.id, res.locals.user.id);
-  Game.demoteApprovedExcept(game.lesson_id, game.variant, game.gender_theme, game.id);
+  Game.demoteApprovedExcept(game.lesson_id, game.variant, game.gender_theme, game.id, game.template_type);
   req.flash('success', t('teacher.published'));
   res.redirect(`/teacher/games/${game.id}/preview`);
 }
@@ -256,5 +371,6 @@ function gameRegenerate(req, res) {
 
 module.exports = {
   subjectsPage, lessonsList, lessonNew, lessonCreate, lessonShow, lessonEdit, lessonUpdate,
-  lessonGenerate, gamePreview, gameApprove, gameReject, gameFix, gameRegenerate,
+  lessonGenerate, lessonGenerateTriple, triplePreview, tripleApprove, tripleRegenerate,
+  gamePreview, gameApprove, gameReject, gameFix, gameRegenerate,
 };

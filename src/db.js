@@ -74,8 +74,14 @@ db.exec(`
     approved_at         TEXT,
     approved_by         INTEGER REFERENCES users(id)
   );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_games_lesson_variant_gender
-    ON games(lesson_id, variant, gender_theme)
+  -- One non-approved game per (lesson, variant, gender_theme, template_type).
+  -- The previous index intentionally collapsed templates, which made storing a
+  -- "triple pack" (all three templates in one combo) impossible — it would
+  -- reject the second/third game. Drop it if it exists and recreate including
+  -- template_type.
+  DROP INDEX IF EXISTS idx_games_lesson_variant_gender;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_games_lesson_variant_gender_template
+    ON games(lesson_id, variant, gender_theme, template_type)
     WHERE status != 'approved';
 
   CREATE TABLE IF NOT EXISTS attempts (

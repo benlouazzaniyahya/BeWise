@@ -35,18 +35,32 @@ function create({ lessonId, variant, genderTheme, templateType, gameJson, static
   return info.lastInsertRowid;
 }
 
-const deleteNonApprovedForCombo = (lessonId, variant, genderTheme) =>
-  run(
+const deleteNonApprovedForCombo = (lessonId, variant, genderTheme, templateType) => {
+  if (templateType) {
+    return run(
+      "DELETE FROM games WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND template_type = ? AND status != 'approved'",
+      lessonId, variant, genderTheme, templateType,
+    );
+  }
+  return run(
     "DELETE FROM games WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND status != 'approved'",
     lessonId, variant, genderTheme,
   );
+};
 
 // Keep the newest approved version for a combo (adaptive boosters survive).
-const demoteApprovedExcept = (lessonId, variant, genderTheme, exceptId) =>
-  run(
-    "UPDATE games SET status = 'pending_review' WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND id != ? AND status = 'approved' AND COALESCE(notes, '') != 'adaptive-booster'",
-    lessonId, variant, genderTheme, exceptId,
-  );
+// A templateType scopes the demotion to that template so approving one game
+// never demotes an approved sibling of another template in the same combo.
+const demoteApprovedExcept = (lessonId, variant, genderTheme, exceptId, templateType) =>
+  templateType
+    ? run(
+        "UPDATE games SET status = 'pending_review' WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND template_type = ? AND id != ? AND status = 'approved' AND COALESCE(notes, '') != 'adaptive-booster'",
+        lessonId, variant, genderTheme, templateType, exceptId,
+      )
+    : run(
+        "UPDATE games SET status = 'pending_review' WHERE lesson_id = ? AND variant = ? AND gender_theme = ? AND id != ? AND status = 'approved' AND COALESCE(notes, '') != 'adaptive-booster'",
+        lessonId, variant, genderTheme, exceptId,
+      );
 
 const setStatus = (id, status) => run('UPDATE games SET status = ? WHERE id = ?', status, id);
 

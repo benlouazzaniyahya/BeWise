@@ -59,12 +59,44 @@ router.post('/games/regenerate', async (req, res) => {
   }
   if (!feedbackInstructions) return res.status(400).json({ ok: false, message: 'feedbackInstructions is required.' });
 
+  // Triple-pack regenerate: when the previous JSON contains all three fixed
+  // templates, route through the dedicated fix path so the AI can revise the
+  // whole trio at once instead of one template at a time.
+  const isTriple = ai.extractTripleGames(previousJson) !== null;
+
   try {
-    const data = await ai.regenerateFromFeedback({ previousJson, feedbackInstructions });
-    return res.json({ ok: true, ...data });
+    const data = isTriple
+      ? await ai.regenerateTripleFromFeedback({ previousJson, feedbackInstructions })
+      : await ai.regenerateFromFeedback({ previousJson, feedbackInstructions });
+    return res.json({ ok: true, triple: isTriple, ...data });
   } catch (err) {
     const code = err.code === 'GENERATION_FAILED' ? 502 : 400;
     return res.status(code).json({ ok: false, message: (err.message || 'Regeneration failed.').slice(0, 300) });
+  }
+});
+
+// Spec shape: { lessonText, level } => { metadata, games:{airplane,whack_a_mole,flying_fruit}, staticVersions }
+// Fills all three templates in ONE OpenRouter call so the teacher can
+// play-test them side-by-side before approving.
+router.post('/games/triple-generate', async (req, res) => {
+  const lessonText = typeof req.body.lessonText === 'string' ? req.body.lessonText.trim().slice(0, 4000) : '';
+  if (!lessonText) return res.status(400).json({ ok: false, message: 'lessonText is required.' });
+
+  const level = typeof req.body.level === 'string' && req.body.level.trim() ? req.body.level.trim().slice(0, 24) : 'cp';
+  const lang = LANGS.includes(req.body.lang) ? req.body.lang : 'en';
+  const variant = PROFILES.includes(req.body.variant) ? req.body.variant : 'normale';
+  const genderTheme = GENDER_THEMES.includes(req.body.genderTheme) ? req.body.genderTheme : 'neutral';
+  const subjectName = typeof req.body.subjectName === 'string' && req.body.subjectName ? req.body.subjectName : 'english';
+
+  try {
+    const data = await ai.generateTripleFromSpec({
+      lessonText, level, lang, variant, genderTheme, subjectName,
+      extraInstructions: typeof req.body.extraInstructions === 'string' ? req.body.extraInstructions : undefined,
+    });
+    return res.json({ ok: true, triple: true, ...data });
+  } catch (err) {
+    const code = err.code === 'GENERATION_FAILED' ? 502 : 400;
+    return res.status(code).json({ ok: false, message: (err.message || 'Triple generation failed.').slice(0, 300) });
   }
 });
 

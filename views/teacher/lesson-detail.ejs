@@ -65,6 +65,36 @@
     </form>
   </div>
 
+  <div class="card">
+    <h2><%= t('teacher.tripleHeading') %></h2>
+    <p class="hint"><%= t('teacher.tripleSub') %></p>
+    <form action="/teacher/lessons/<%= lesson.id %>/generate-triple" method="post">
+      <div class="row-2">
+        <div class="field">
+          <label for="triple-variant"><%= t('teacher.profile') %></label>
+          <select id="triple-variant" name="variant">
+            <% VARIANTS.forEach(function(v) { %>
+              <option value="<%= v %>"><%= profileLabel(v) %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="triple-genderTheme"><%= t('teacher.genderTheme') %></label>
+          <select id="triple-genderTheme" name="genderTheme">
+            <option value="neutral"><%= t('teacher.neutral') %></option>
+            <option value="male"><%= t('teacher.boys') %></option>
+            <option value="female"><%= t('teacher.girls') %></option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="triple-extraInstructions"><%= t('teacher.extraInstructions') %></label>
+        <input id="triple-extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+      </div>
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.tripleGenerate') %></button>
+    </form>
+  </div>
+
   <% if (jobs.length) { %>
     <div class="card">
       <h2><%= t('teacher.aiMode') %></h2>
