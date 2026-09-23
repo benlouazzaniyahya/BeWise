@@ -96,7 +96,22 @@
           <% if (g.notes) { %><span class="small muted">(<%= g.notes %>)</span><% } %>
         </div>
         <div class="game-row-actions">
-          <a class="btn btn-ghost btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.preview') %></a>
+          <% if (g.status === 'pending_review') { %>
+            <a class="btn btn-primary btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.previewApprove') %></a>
+            <form action="/teacher/games/<%= g.id %>/approve" method="post">
+              <button class="btn btn-success btn-sm" type="submit"><%= t('teacher.approvePublish') %></button>
+            </form>
+            <form action="/teacher/games/<%= g.id %>/reject" method="post">
+              <button class="btn btn-danger btn-sm" type="submit"><%= t('teacher.reject') %></button>
+            </form>
+          <% } else { %>
+            <a class="btn btn-ghost btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.preview') %></a>
+            <% if (g.status === 'rejected') { %>
+              <form action="/teacher/games/<%= g.id %>/approve" method="post">
+                <button class="btn btn-success btn-sm" type="submit"><%= t('teacher.approvePublish') %></button>
+              </form>
+            <% } %>
+          <% } %>
         </div>
       </div>
     <% }); %>
