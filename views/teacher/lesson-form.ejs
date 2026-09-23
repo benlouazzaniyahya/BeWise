@@ -36,8 +36,8 @@
 
       <div class="row-2">
         <div class="field">
-          <label for="level"><%= t('common.level') %> (1-5)</label>
-          <input id="level" name="level" type="number" min="1" max="5" readonly value="<%= gradeInfo((lesson ? (lesson.school_level || defaultGrade) : defaultGrade)).level %>">
+          <label for="level"><%= t('common.level') %> (1-6)</label>
+          <input id="level" name="level" type="number" min="1" max="6" readonly value="<%= gradeInfo((lesson ? (lesson.school_level || defaultGrade) : defaultGrade)).level %>">
           <p class="hint"><%= t('school.derivedHint') %></p>
         </div>
         <div class="field">
@@ -65,7 +65,7 @@
 </main>
 <script>
   (function(){
-    var map = {cp:1, ce1:2, ce2:2, cm1:3, cm2:3, sixieme:4};
+    var map = {cp:1, ce1:2, ce2:3, cm1:4, cm2:5, sixieme:6};
     var sel = document.getElementById('school_level');
     var lvl = document.getElementById('level');
     if (!sel || !lvl) return;

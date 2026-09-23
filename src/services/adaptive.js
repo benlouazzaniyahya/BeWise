@@ -96,7 +96,7 @@ function suggestDifficulty(childId, subjectId, baseLevel) {
   let level = baseLevel;
   if (avgPct >= 85 && passRate >= 0.75) level = baseLevel + 1;
   else if (avgPct < 60 || passRate < 0.4) level = baseLevel - 1;
-  return Math.min(5, Math.max(1, level));
+  return Math.min(6, Math.max(1, level));
 }
 
 // Class-level suggestion: difficulty to ask the AI when generating for a whole
@@ -110,7 +110,7 @@ function suggestLevelForSubject(subjectId, baseLevel) {
   let level = baseLevel;
   if (avgPct >= 82 && passRate >= 0.7) level = baseLevel + 1;
   else if (avgPct < 55 || passRate < 0.35) level = baseLevel - 1;
-  return Math.min(5, Math.max(1, level));
+  return Math.min(6, Math.max(1, level));
 }
 
 module.exports = { attemptHistory, computeLearningSpeed, speedLabelKey, suggestDifficulty, suggestLevelForSubject };

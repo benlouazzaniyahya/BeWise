@@ -126,15 +126,7 @@ db.exec(`
 // Migration: school level (CP → 6ème) on children + lessons.
 // Adds the columns on pre-existing DBs and backfills from age / difficulty.
 // ---------------------------------------------------------------------------
-const TABLE_GRADES = { 1: 'cp', 2: 'ce1', 3: 'ce2', 4: 'cm1', 5: 'cm2' };
-const AGE_GRADES = [
-  [6, 7, 'cp'],
-  [7, 8, 'ce1'],
-  [8, 9, 'ce2'],
-  [9, 10, 'cm1'],
-  [10, 11, 'cm2'],
-  [11, 12, 'sixieme'],
-];
+const TABLE_GRADES = { 1: 'cp', 2: 'ce1', 3: 'ce2', 4: 'cm1', 5: 'cm2', 6: 'sixieme' };
 const tableColumns = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
 
 if (!tableColumns('children').includes('school_level')) {
@@ -144,12 +136,8 @@ if (!tableColumns('lessons').includes('school_level')) {
   db.exec("ALTER TABLE lessons ADD COLUMN school_level TEXT;");
 }
 
-const backfillChildStmt = db.prepare('UPDATE children SET school_level = ? WHERE id = ?');
-for (const k of db.prepare("SELECT id, age FROM children WHERE school_level IS NULL OR school_level = ''").all()) {
-  const grade = AGE_GRADES.find(([min, max]) => Number(k.age) >= min && Number(k.age) <= max);
-  backfillChildStmt.run(grade ? grade[2] : 'cp', k.id);
-}
-
+// Children: age is a separate, independent column — we do NOT guess a class
+// from age (kids start school at different ages). Undefined = parent sees all.
 const backfillLessonStmt = db.prepare('UPDATE lessons SET school_level = ? WHERE id = ?');
 for (const l of db.prepare("SELECT id, level FROM lessons WHERE school_level IS NULL OR school_level = ''").all()) {
   backfillLessonStmt.run(TABLE_GRADES[Number(l.level)] || 'cp', l.id);

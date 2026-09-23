@@ -74,11 +74,14 @@ function main() {
     const parent2 = ensureUser('parent', 'parent2@home.test', 'parent123', 'fr');
 
     // ---- children ---------------------------------------------------------
-    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 7, 'male', 'standard', 'ar', 'cp');
+    // Age is an independent column: Omar (8) is still in CP — children start
+    // school at different ages, so the class is chosen directly by the parent.
+    ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 8, 'male', 'standard', 'ar', 'cp');
     ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'standard', 'en', 'cm1');
     ensureChild(parent2.id, 'max', 'max123', 'Max', 8, 'male', 'special_needs', 'fr', 'ce1');
 
     // ---- lessons ----------------------------------------------------------
+    // Each class owns its own difficulty level (CP=1 … 6ème=6).
     const l1 = getOrCreateLesson(teacher1.id, subjects.math, 'Numbers and Counting 1–10', [
       'Numbers 1 to 10: one, two, three, four, five, six, seven, eight, nine, ten.',
       'Counting tells us how many things there are.',
@@ -91,7 +94,7 @@ function main() {
       'A square has 4 equal sides. A triangle has 3 sides.',
       'A rectangle has 2 long sides and 2 short sides.',
       'Find shapes all around you before playing the game.',
-    ].join(' '), 1, 60, 2, 'cp');
+    ].join(' '), 2, 60, 2, 'cp');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Animals and their babies', [
       'A dog has puppies, a cat has kittens, and a cow has calves.',
@@ -111,12 +114,31 @@ function main() {
       'Retrouve les couleurs que tu connais dans le jeu de vocabulaire.',
     ].join(' '), 2, 60, 1, 'ce1');
 
+    getOrCreateLesson(teacher1.id, subjects.english, 'Plural nouns: one apple, two apples', [
+      'We say one apple but two apples. Add -s (or -es) to make plurals: cat → cats, box → boxes.',
+      'Some plurals change: one child, two children; one foot, two feet.',
+      'Look at the words and choose their plural form in the game.',
+    ].join(' '), 3, 60, 1, 'ce2');
+
     const lReading = getOrCreateLesson(teacher1.id, subjects.english, 'Reading: My school day', [
       "Every day I get up at seven o'clock. I wash my face, eat breakfast and put on my school bag.",
       'My school starts at eight. We read, we count and we play.',
       'At noon I eat lunch with my friends. After school I do my homework, then I play outside.',
       'Read the text and answer the questions in the game.',
-    ].join(' '), 3, 60, 2, 'cm1');
+    ].join(' '), 4, 60, 2, 'cm1');
+
+    getOrCreateLesson(teacher1.id, subjects.math, 'Multiplying by 10, 100 and 1000', [
+      'When you multiply by 10, the number grows 10 times bigger: 25 × 10 = 250.',
+      'By 100: 25 × 100 = 2500. By 1000: 25 × 1000 = 25000.',
+      'The digits move to the left and we add zeroes.',
+      'Practise with the multiplication game.',
+    ].join(' '), 5, 60, 1, 'cm2');
+
+    getOrCreateLesson(teacher1.id, subjects.math, 'Solving simple equations', [
+      'An equation is a balance: x + 3 = 10 means x is the number that makes both sides equal.',
+      'x = 7 because 7 + 3 = 10. Find the unknown and keep the balance.',
+      'Solve each equation step by step in the game.',
+    ].join(' '), 6, 60, 2, 'sixieme');
 
     // ---- pre-approved games for lesson 1 (playable immediately) -----------
     const mathLessonId = l1.id;
