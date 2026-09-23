@@ -201,7 +201,7 @@ let clientModel = null;
 function getClientModel() {
   if (clientModel) return clientModel;
   if (!process.env.OPENROUTER_API_KEY) return null;
-  clientModel = process.env.OPENROUTER_MODEL || 'inclusionai/ling-3.0-flash-vl';
+  clientModel = process.env.OPENROUTER_MODEL || 'nex-agi/nex-n2.5-mini:free';
   return clientModel;
 }
 
