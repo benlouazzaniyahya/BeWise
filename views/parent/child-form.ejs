@@ -63,10 +63,6 @@
 
       <% if (!child) { %>
         <div class="field">
-          <label for="child_login_id"><%= t('parent.loginId') %></label>
-          <input id="child_login_id" name="child_login_id" type="text" placeholder="<%= t('parent.loginIdAuto') %>">
-        </div>
-        <div class="field">
           <label for="password"><%= t('parent.childPassword') %></label>
           <input id="password" name="password" type="text" required minlength="6">
           <p class="hint"><%= t('parent.childPasswordHint') %></p>
