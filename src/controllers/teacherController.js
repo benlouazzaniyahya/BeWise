@@ -467,7 +467,7 @@ function examNew(req, res) {
   if (!lesson) return notFound(res);
   const subject = Subject.findById(lesson.subject_id);
   res.render('teacher/exam-editor', {
-    page: 'teacher', titleKey: 'exam.newTitle', lesson, subject, exam: null,
+    page: 'teacher', titleKey: 'exam.newTitle', lesson, subject, exam: null, questions: [],
     subject_label: subjectLabel(res.locals.lang, subject.name), t,
   });
 }
