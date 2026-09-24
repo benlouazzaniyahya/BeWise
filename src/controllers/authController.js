@@ -51,29 +51,41 @@ function languageSave(req, res) {
 // ---------------------------------------------------------------------------
 function loginPage(req, res) {
   if (res.locals.user) return res.redirect(homeFor(res.locals.user.role));
-  const t = tFor(res.locals.lang);
   res.render('auth/login', {
     page: 'login', titleKey: 'auth.loginTitle', next: req.query.next || '/home',
-    mode: req.query.mode === 'child' ? 'child' : 'adult',
     googleEnabled: Boolean(oauth.configured()),
   });
 }
 
 function login(req, res) {
   const t = tFor(res.locals.lang);
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const identifier = String(req.body.email || req.body.child_login_id || '').trim().toLowerCase();
   const password = String(req.body.password || '');
+  const next = String(req.body.next || '/home');
 
-  const user = User.findByEmail(email);
-  if (!user || !user.password_hash || !bcrypt.compareSync(password, user.password_hash)) {
-    req.flash('error', t('auth.loginFailed'));
-    return res.redirect(`/login?next=${encodeURIComponent(req.body.next || '/home')}`);
+  // Adult accounts (admin, teacher, parent) sign in with email.
+  const user = User.findByEmail(identifier);
+  if (user) {
+    if (!user.password_hash || !bcrypt.compareSync(password, user.password_hash)) {
+      req.flash('error', t('auth.loginFailed'));
+      return res.redirect(`/login?next=${encodeURIComponent(next)}`);
+    }
+    User.updateLanguage(user.id, res.locals.lang);
+    setAuthCookie(res, signUser(user));
+    res.redirect(next.startsWith('/') ? next : homeFor(user.role));
+    return;
   }
 
-  User.updateLanguage(user.id, res.locals.lang);
-  setAuthCookie(res, signUser(user));
-  const next = req.body.next && req.body.next.startsWith('/') ? req.body.next : homeFor(user.role);
-  res.redirect(next);
+  // Kids sign in with their login id or display name.
+  const child = Child.findByLoginOrName(identifier);
+  if (child && bcrypt.compareSync(password, child.password_hash)) {
+    setChildCookie(res, child.id);
+    res.redirect('/child');
+    return;
+  }
+
+  req.flash('error', t('auth.loginFailed'));
+  res.redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 
 function signupPage(req, res) {
@@ -146,7 +158,7 @@ async function googleCallback(req, res) {
 function childLoginPage(req, res) {
   // Merged into the main login page; keep old bookmarks working.
   if (res.locals.child) return res.redirect('/child');
-  res.redirect('/login?mode=child');
+  res.redirect('/login');
 }
 
 function childLogin(req, res) {
@@ -157,7 +169,7 @@ function childLogin(req, res) {
   const child = Child.findByLoginOrName(loginId);
   if (!child || !bcrypt.compareSync(password, child.password_hash)) {
     req.flash('error', t('childAuth.failed'));
-    return res.redirect('/login?mode=child');
+    return res.redirect('/login');
   }
   setChildCookie(res, child.id);
   res.redirect('/child');

@@ -72,7 +72,8 @@ const STRINGS = {
     'lang.change': 'Change language',
 
     'auth.loginTitle': 'Sign in',
-    'auth.loginSub': 'Adults (teacher, parent, admin) sign in with email here. Kids use the Child tab.',
+    'auth.loginSub': 'One sign-in for everyone — teachers, parents, admins and kids.',
+    'auth.loginLabel': 'Email (adults) or child login id / name (kids)',
     'auth.roleTeacher': 'Teacher',
     'auth.roleParent': 'Parent',
     'auth.roleAdmin': 'Admin',
@@ -518,7 +519,8 @@ const STRINGS = {
     'lang.change': 'Changer de langue',
 
     'auth.loginTitle': 'Connexion',
-    'auth.loginSub': 'Les adultes (enseignant, parent, admin) se connectent ici avec un e-mail. Les enfants utilisent l’onglet « Enfant ».',
+    'auth.loginSub': 'Une seule connexion pour tous — enseignants, parents, admins et enfants.',
+    'auth.loginLabel': 'E-mail (adultes) ou identifiant / nom enfant (enfants)',
     'auth.roleTeacher': 'Enseignant',
     'auth.roleParent': 'Parent',
     'auth.roleAdmin': 'Administrateur',
@@ -964,7 +966,8 @@ const STRINGS = {
     'lang.change': 'تغيير اللغة',
 
     'auth.loginTitle': 'تسجيل الدخول',
-    'auth.loginSub': 'يسجّل الكبار (معلم، ولي أمر، مشرف) الدخول هنا بالبريد الإلكتروني. الأطفال يستخدمون تبويب «الأطفال».',
+    'auth.loginSub': 'تسجيل دخول واحد للجميع — المعلمين وأولياء الأمور والمشرفين والأطفال.',
+    'auth.loginLabel': 'البريد الإلكتروني (للكبار) أو معرّف / اسم دخول الطفل (للأطفال)',
     'auth.roleTeacher': 'معلم',
     'auth.roleParent': 'ولي أمر',
     'auth.roleAdmin': 'مشرف',
