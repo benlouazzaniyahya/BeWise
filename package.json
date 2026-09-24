@@ -1,7 +1,7 @@
-{
-  "name": "bewize",
+﻿{
+  "name": "nabta",
   "version": "1.0.0",
-  "description": "Bewize - AI-powered adaptive learning games for kids (EdTech hackathon prototype)",
+  "description": "nabta - AI-powered adaptive learning games for kids (EdTech hackathon prototype)",
   "main": "server.js",
   "type": "commonjs",
   "engines": {

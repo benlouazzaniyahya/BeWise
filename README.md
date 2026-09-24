@@ -1,4 +1,4 @@
-# Bewize
+# nabta
 
 An EdTech prototype that turns lesson content into child-friendly learning games.
 Teachers write lessons, an LLM (Anthropic Claude) generates **quiz / match / fill**

@@ -1,7 +1,8 @@
 <header class="topbar">
   <div class="wrap topbar-inner">
     <a class="brand" href="<%= user ? (user.role==='admin'?'/admin':user.role==='teacher'?'/teacher':'/parent') : (child ? '/child' : '/home') %>">
-      <span class="brand-mark">B</span> <span><%= t('app.name') %></span>
+      <img class="brand-mark brand-logo" src="/assets/images/logo.png" alt="<%= t('app.name') %>">
+      <span><%= t('app.name') %></span>
     </a>
 
     <nav class="nav">

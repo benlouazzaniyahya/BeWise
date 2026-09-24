@@ -1,11 +1,11 @@
-'use strict';
+﻿'use strict';
 
 // ---------------------------------------------------------------------------
 // AI game generation + strict validation.
 //
 // - The game library is FIXED: exactly three reusable templates
 //   (airplane, whack_a_mole, flying_fruit) shipped in
-//   public/js/game-lib.js. The AI NEVER creates new UI or new templates — it
+//   public/js/game-lib.js. The AI NEVER creates new UI or new templates â€” it
 //   only fills structured content for one of these three templates.
 // - The AI obeys a STRICT JSON contract (metadata + games.<template>), see
 //   SYSTEM_PROMPT. Validation normalizes the output into a canonical game
@@ -24,7 +24,7 @@ const { gradeBand, gradeInfo, MAX_LEVEL, TEMPLATES } = require('../i18n');
 const MAX_ATTEMPTS = 3;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Entry/size caps — the AI can never flood a game with content.
+// Entry/size caps â€” the AI can never flood a game with content.
 const MAX_QUESTIONS = 8;
 const MAX_TILES = 12;
 
@@ -47,13 +47,13 @@ const BLOCKED_TOKENS = [
   // french
   'tuer', 'meurtre', 'arme', 'drogue', 'suicide', 'sang', 'violence',
   // arabic (phonetic + common)
-  'قتل', 'دم', 'سلاح', 'جنسي', 'انتحار', 'مخدرات',
+  'Ù‚ØªÙ„', 'Ø¯Ù…', 'Ø³Ù„Ø§Ø­', 'Ø¬Ù†Ø³ÙŠ', 'Ø§Ù†ØªØ­Ø§Ø±', 'Ù…Ø®Ø¯Ø±Ø§Øª',
 ];
 
 // Arabic letters + diacritics, for word-boundary matching of Arabic tokens.
 const AR_LETTERS = '\u0621-\u064A\u066E-\u06D3\u06D5\u0750-\u077F';
 const AR_DIAC = '\u064B-\u0652\u0653-\u065F\u0670';
-const AR_PREFIX = '(?:[بوفكل]?ال)?';
+const AR_PREFIX = '(?:[Ø¨ÙˆÙÙƒÙ„]?Ø§Ù„)?';
 
 function isArabicToken(tok) {
   return /[\u0621-\u064A\u066E-\u06D3]/.test(tok);
@@ -72,7 +72,7 @@ function safetyCheck(obj) {
 
   for (const tok of BLOCKED_TOKENS) {
     // Whole-word matching only: plain substrings would false-positive on
-    // innocent words (e.g. english "die" in "diet", arabic "دم" in "قدم"/"دماغ").
+    // innocent words (e.g. english "die" in "diet", arabic "Ø¯Ù…" in "Ù‚Ø¯Ù…"/"Ø¯Ù…Ø§Øº").
     if (isArabicToken(tok)) {
       const re = new RegExp(`(?<![${AR_LETTERS}])${AR_PREFIX}${tok}(?![${AR_LETTERS}${AR_DIAC}])`);
       if (re.test(lower)) return `blocked content: "${tok}"`;
@@ -85,7 +85,7 @@ function safetyCheck(obj) {
   if (PHONE_RE.test(joined)) return 'contains a phone number';
   // nonsense guard: single "word" longer than 60 chars
   for (const s of strings) {
-    if (s && s.length > 60 && !s.includes(' ') && !s.includes('،')) return 'malformed long token';
+    if (s && s.length > 60 && !s.includes(' ') && !s.includes('ØŒ')) return 'malformed long token';
   }
   return null;
 }
@@ -176,7 +176,7 @@ function normalizeTemplate(template, core, errors, targetLang) {
     const rawList = Array.isArray(core.questions) ? core.questions : [];
     if (!rawList.length) errors.push('"questions" must be a non-empty array');
     if (rawList.length > MAX_QUESTIONS) {
-      errors.push(`too many questions (max ${MAX_QUESTIONS}) — keep them short and essential`);
+      errors.push(`too many questions (max ${MAX_QUESTIONS}) â€” keep them short and essential`);
     }
     const questions = [];
     rawList.forEach((q, i) => {
@@ -272,14 +272,14 @@ function deriveStaticVersion(game) {
 
   if (game.template === 'airplane') {
     (game.questions || []).forEach((q, i) => {
-      sections.push({ title: `${i + 1}. ${q.question}`, body: `→ ${q.correct_answer}` });
+      sections.push({ title: `${i + 1}. ${q.question}`, body: `â†’ ${q.correct_answer}` });
     });
   } else {
     const list = game.questions ? game.questions : (game.targets || game.items || []);
     const head = game.template === 'flying_fruit' ? game.category_prompt : game.prompt;
     if (head) sections.push({ title: head, body: '' });
     list.forEach((t, i) => {
-      sections.push({ title: `${i + 1}. ${t.text}`, body: t.is_correct ? '✔ correct' : '✘ not correct' });
+      sections.push({ title: `${i + 1}. ${t.text}`, body: t.is_correct ? 'âœ” correct' : 'âœ˜ not correct' });
     });
   }
   return { sections };
@@ -332,8 +332,8 @@ async function callModel(prompt, options) {
   const model = (options.model || queue[0]);
   if (!model) return null;
   const key = process.env.OPENROUTER_API_KEY;
-  const site = process.env.OPENROUTER_SITE_URL || process.env.BASE_URL || 'https://bewize.local';
-  const title = process.env.OPENROUTER_APP_TITLE || 'Bewize';
+  const site = process.env.OPENROUTER_SITE_URL || process.env.BASE_URL || 'https://nabta.local';
+  const title = process.env.OPENROUTER_APP_TITLE || 'nabta';
 
   const body = {
     model,
@@ -378,7 +378,7 @@ async function callModel(prompt, options) {
 
 // ---------------------------------------------------------------------------
 // Course-grounding: derive the lesson's OWN vocabulary so generated games can
-// be REQUIRED to reuse it. Games must mirror the course content — not generic
+// be REQUIRED to reuse it. Games must mirror the course content â€” not generic
 // trivia. The validation loops re-prompt the model when the pack drifts away
 // from the lesson keywords.
 // ---------------------------------------------------------------------------
@@ -393,8 +393,8 @@ const GROUNDING_STOPWORDS = new Set([
   'le', 'la', 'les', 'un', 'une', 'de', 'du', 'des', 'et', 'ou', 'il', 'elle', 'que', 'qui',
   'est', 'sont', 'pour', 'avec', 'dans', 'sur', 'pas', 'plus', 'mais', 'ses', 'ce', 'cette',
   'ces', 'par', 'aux', 'dau', 'tout', 'tous', 'comme', 'votre', 'nous', 'vous', 'leur',
-  'في', 'من', 'على', 'إلى', 'ال', 'عن', 'و', 'هو', 'هي', 'أن', 'إن', 'لا', 'ما', 'بعد',
-  'قبل', 'مثل', 'قد', 'أو', 'مع', 'هذا', 'هذه', 'ذلك', 'كان', 'كانت', 'ثم', 'حيث', 'أي',
+  'ÙÙŠ', 'Ù…Ù†', 'Ø¹Ù„Ù‰', 'Ø¥Ù„Ù‰', 'Ø§Ù„', 'Ø¹Ù†', 'Ùˆ', 'Ù‡Ùˆ', 'Ù‡ÙŠ', 'Ø£Ù†', 'Ø¥Ù†', 'Ù„Ø§', 'Ù…Ø§', 'Ø¨Ø¹Ø¯',
+  'Ù‚Ø¨Ù„', 'Ù…Ø«Ù„', 'Ù‚Ø¯', 'Ø£Ùˆ', 'Ù…Ø¹', 'Ù‡Ø°Ø§', 'Ù‡Ø°Ù‡', 'Ø°Ù„Ùƒ', 'ÙƒØ§Ù†', 'ÙƒØ§Ù†Øª', 'Ø«Ù…', 'Ø­ÙŠØ«', 'Ø£ÙŠ',
 ]);
 
 function courseKeywords(lesson) {
@@ -423,7 +423,7 @@ function groundingHits(text, keywords) {
 // Returns a rejection reason string when the AI output drifts away from the
 // course vocabulary, or '' when it is sufficiently grounded. Skipped entirely
 // for teacher-driven redo/correction requests (they may legitimately alter the
-// topic) — the `mode === 'fix'` caller decides.
+// topic) â€” the `mode === 'fix'` caller decides.
 function courseGroundingError(obj, lesson) {
   const kws = courseKeywords(lesson);
   if (kws.length < 3) return '';
@@ -438,7 +438,7 @@ function courseGroundingError(obj, lesson) {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt builder (no PII — only generic lesson/profile context)
+// Prompt builder (no PII â€” only generic lesson/profile context)
 // ---------------------------------------------------------------------------
 function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraInstructions, difficultyHint, mode, currentGame, feedback, template }) {
   const [ageMin, ageMax] = gradeBand(lesson.school_level);
@@ -455,7 +455,7 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
     : genderTheme === 'female'
       ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
-      : `GENDER THEME: generic and balanced — appealing to everyone.`;
+      : `GENDER THEME: generic and balanced â€” appealing to everyone.`;
 
   const languageLine = lang === 'ar'
     ? 'Arabic (keep proper right-to-left text)'
@@ -480,7 +480,7 @@ function buildPrompt({ lesson, subjectName, variant, genderTheme, lang, extraIns
 
 The "games" object contains EXACTLY ONE key: the template you are filling.
 
-Template 1 — "airplane": Fly a plane and answer questions. Each question is a multiple choice with one correct answer and two or three distractors:
+Template 1 â€” "airplane": Fly a plane and answer questions. Each question is a multiple choice with one correct answer and two or three distractors:
 {
   "instructions": "one kid-friendly instruction line",
   "questions": [
@@ -488,7 +488,7 @@ Template 1 — "airplane": Fly a plane and answer questions. Each question is a 
   ]
 }
 
-Template 2 — "whack_a_mole": Moles pop up; the child must whack ONLY the correct ones and leave the wrong ones alone:
+Template 2 â€” "whack_a_mole": Moles pop up; the child must whack ONLY the correct ones and leave the wrong ones alone:
 {
   "instructions": "one kid-friendly instruction line",
   "prompt": "what the child must look for (e.g. 'Whack the words that begin with the letter b')",
@@ -498,7 +498,7 @@ Template 2 — "whack_a_mole": Moles pop up; the child must whack ONLY the corre
   ]
 }
 
-Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child must CATCH the ones that belong to a category and avoid the others:
+Template 3 â€” "flying_fruit": Fruit/objects fly across the screen; the child must CATCH the ones that belong to a category and avoid the others:
 {
   "instructions": "one kid-friendly instruction line",
   "category_prompt": "which category to catch (e.g. 'Catch the fruits')",
@@ -532,16 +532,16 @@ Template 3 — "flying_fruit": Fruit/objects fly across the screen; the child mu
     + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
     + `- Distractors must be plausible but clearly different from the correct answer.`
     + `- CONTENT MUST BE RELATED TO THE COURSE: every question, answer, word and example must appear in the COURSE JSON. Never use generic or unrelated content.`
-    + `- The child never sees JSON keys — only the game experience.`;
+    + `- The child never sees JSON keys â€” only the game experience.`;
   return prompt;
 }
 
 // ---------------------------------------------------------------------------
-// "TRIPLE" mode — ask the model to fill ALL THREE fixed templates in one
+// "TRIPLE" mode â€” ask the model to fill ALL THREE fixed templates in one
 // response (the spec the user pasted combines airplane + whack_a_mole +
 // flying_fruit into a single JSON payload). Sub-validation still happens
 // per template via `validateGameJson`, so each entry is graded/rendered by
-// the exact same engine as before — only the AI call is combined.
+// the exact same engine as before â€” only the AI call is combined.
 // ---------------------------------------------------------------------------
 function buildTriplePrompt(context) {
   const lesson = context.lesson;
@@ -560,12 +560,12 @@ function buildTriplePrompt(context) {
 
   // THE TRIPLE PACK IS PURELY COURSE-DRIVEN: the three games always reinforce
   // the SAME lesson for every learner profile. No autism/hearing specialization
-  // here — content fidelity to the course matters more than profile tweaks.
+  // here â€” content fidelity to the course matters more than profile tweaks.
   const themeLine = genderTheme === 'male'
     ? `GENDER THEME: friendly to boys (e.g. space, cars, animals, robots, sea) but never excluding anyone.`
     : genderTheme === 'female'
       ? `GENDER THEME: friendly to girls (e.g. nature, art, pets, stars, garden) but never excluding anyone.`
-      : `GENDER THEME: generic and balanced — appealing to everyone.`;
+      : `GENDER THEME: generic and balanced â€” appealing to everyone.`;
 
   const languageLine = lang === 'ar'
     ? 'Arabic (keep proper right-to-left text)'
@@ -587,7 +587,7 @@ function buildTriplePrompt(context) {
 
 All three keys inside "games" MUST be present and validated. Each is one of the three fixed templates (no other keys allowed):
 
-Template 1 — "airplane": Fly a plane and answer questions.
+Template 1 â€” "airplane": Fly a plane and answer questions.
 {
   "instructions": "one kid-friendly instruction line",
   "questions": [
@@ -595,7 +595,7 @@ Template 1 — "airplane": Fly a plane and answer questions.
   ]
 }
 
-Template 2 — "whack_a_mole": Whack only the correct moles.
+Template 2 â€” "whack_a_mole": Whack only the correct moles.
 {
   "instructions": "one kid-friendly instruction line",
   "prompt": "what the child must whack (e.g. 'Whack the words that begin with the letter b')",
@@ -605,7 +605,7 @@ Template 2 — "whack_a_mole": Whack only the correct moles.
   ]
 }
 
-Template 3 — "flying_fruit": Catch only the items that belong to a category.
+Template 3 â€” "flying_fruit": Catch only the items that belong to a category.
 {
   "instructions": "one kid-friendly instruction line",
   "category_prompt": "which category to catch (e.g. 'Catch the fruits')",
@@ -637,26 +637,26 @@ Template 3 — "flying_fruit": Catch only the items that belong to a category.
     + `- airplane: 4 multiple-choice questions that DRILL THE FACTS AND VOCABULARY OF THE COURSE, each with one correct_answer and 2 or 3 distractors that are plausible but clearly wrong.\n`
     + `- whack_a_mole: 6 to 8 tiles total, all words taken from the COURSE JSON, at least 2 correct and at least 2 wrong tiles.\n`
     + `- flying_fruit: 6 to 8 items, all words taken from the COURSE JSON, at least 2 correct and at least 2 wrong.\n`
-    + `- The three games reinforce ONE ANOTHER on the same lesson — e.g. airplane drills facts, whack surfaces vocabulary words from those facts, flying_fruit sorts examples into a category drawn from the lesson.\n`
+    + `- The three games reinforce ONE ANOTHER on the same lesson â€” e.g. airplane drills facts, whack surfaces vocabulary words from those facts, flying_fruit sorts examples into a category drawn from the lesson.\n`
     + `- CONTENT MUST BE RELATED TO THE COURSE: every question, answer, word and example must appear in the COURSE JSON. Never use generic or unrelated content.\n`
     + `- Keep every short field to one line. No extra keys, no prose outside the JSON object.\n`
     + `- Age-appropriate, positive, non-violent, respectful. No slang, no profanity, no URLs, no emails, no phone numbers, no real people.\n`
-    + `- The child never sees JSON keys — only the game experience.`;
+    + `- The child never sees JSON keys â€” only the game experience.`;
   return prompt;
 }
 
 // ---------------------------------------------------------------------------
-// Offline (no API key) generator — deterministic, content-derived, safe.
+// Offline (no API key) generator â€” deterministic, content-derived, safe.
 // ---------------------------------------------------------------------------
 const NUMBER_WORDS = {
   en: { 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 0: 'zero' },
-  fr: { 1: 'un', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq', 6: 'six', 7: 'sept', 8: 'huit', 9: 'neuf', 0: 'zéro' },
-  ar: { 1: 'واحد', 2: 'اثنان', 3: 'ثلاثة', 4: 'أربعة', 5: 'خمسة', 6: 'ستة', 7: 'سبعة', 8: 'ثمانية', 9: 'تسعة', 0: 'صفر' },
+  fr: { 1: 'un', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq', 6: 'six', 7: 'sept', 8: 'huit', 9: 'neuf', 0: 'zÃ©ro' },
+  ar: { 1: 'ÙˆØ§Ø­Ø¯', 2: 'Ø§Ø«Ù†Ø§Ù†', 3: 'Ø«Ù„Ø§Ø«Ø©', 4: 'Ø£Ø±Ø¨Ø¹Ø©', 5: 'Ø®Ù…Ø³Ø©', 6: 'Ø³ØªØ©', 7: 'Ø³Ø¨Ø¹Ø©', 8: 'Ø«Ù…Ø§Ù†ÙŠØ©', 9: 'ØªØ³Ø¹Ø©', 0: 'ØµÙØ±' },
 };
 
 function pickDistractors(keyword, pool, lang, n) {
   const out = [];
-  const fallback = ['ال', 'de', 'the', 'et', 'و', 'a', 'un', 'le', 'la'];
+  const fallback = ['Ø§Ù„', 'de', 'the', 'et', 'Ùˆ', 'a', 'un', 'le', 'la'];
   const src = [...pool, ...(NUMBER_WORDS[lang] ? Object.values(NUMBER_WORDS[lang]) : []), ...fallback];
   for (const w of src) {
     if (w && w.toLowerCase() !== keyword.toLowerCase() && !out.includes(w) && out.length < n) out.push(w);
@@ -668,7 +668,7 @@ function pickDistractors(keyword, pool, lang, n) {
 function sentences(text) {
   const parts = String(text || '')
     .replace(/\n+/g, ' ')
-    .split(/(?<=[.!؟؟?؛;])\s+/);
+    .split(/(?<=[.!ØŸØŸ?Ø›;])\s+/);
   return parts.map((p) => p.trim()).filter((p) => p.split(/\s+/).length >= 4);
 }
 
@@ -686,7 +686,7 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
   const theme = genderTheme === 'male' ? 'Space' : genderTheme === 'female' ? 'Nature' : 'Fun';
   const intro = lesson.title;
   const staticSections = [];
-  const instructions = `${intro} — ${variant === 'autisme' ? 'simple practice' : 'practice'}`;
+  const instructions = `${intro} â€” ${variant === 'autisme' ? 'simple practice' : 'practice'}`;
 
   if (subjectName === 'math') {
     const rnd = (seed) => { const x = Math.sin(seed * 9973) * 10000; return Math.floor((x - Math.floor(x)) * 9) + 1; };
@@ -700,7 +700,7 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
       const distractors = [...new Set([result + 1, result + 2, result - 1].filter((n) => n >= 0 && n !== result))].map(String);
       while (distractors.length < 2) distractors.push(String(Number(distractors[distractors.length - 1] || result) + 1 + distractors.length));
       const question = op === '+' ? `${a} + ${b} = ?` : `${x} - ${y} = ?`;
-      staticSections.push({ title: `${i + 1}. ${question}`, body: `→ ${result}` });
+      staticSections.push({ title: `${i + 1}. ${question}`, body: `â†’ ${result}` });
       return { id: `q${i + 1}`, question, correct_answer: String(result), distractors: distractors.slice(0, 3) };
     });
     const game = { template: 'airplane', title: intro, theme, instructions, intro: 'Answer each question to fly the plane!', questions };
@@ -736,7 +736,7 @@ function generateOffline({ lesson, subjectName, variant, genderTheme, lang }) {
   };
 }
 
-// Offline TRIPLE generator — produces ONE lesson-aligned game for each of the
+// Offline TRIPLE generator â€” produces ONE lesson-aligned game for each of the
 // three fixed templates so the entire flow can still be demoed without an
 // OpenRouter key. Builds all three templates directly from the lesson text
 // (does NOT call generateOffline which only ever emits a single template).
@@ -943,7 +943,7 @@ async function generateOne({ lesson, subjectName, variant, genderTheme, lang, ex
     game: validation.game,
     staticVersion: validation.staticVersion,
     source: 'ai',
-    note: `OpenRouter · ${model || getClientModel()} · ${attempts} attempt(s)`,
+    note: `OpenRouter Â· ${model || getClientModel()} Â· ${attempts} attempt(s)`,
   };
 }
 
@@ -968,12 +968,12 @@ async function generateWithRetries(context) {
       attemptsUsed++;
       const msg = err.message || 'unknown';
       lastErrors.push(`api error: ${msg}`);
-      // Bad key / auth: permanent — never worth rotating.
+      // Bad key / auth: permanent â€” never worth rotating.
       if (/401|403|unauthoriz|invalid api key|missing api key|api key required/i.test(msg)) break;
       // Quota/credits/availability: switch to the next configured model.
       if (modelIndex < queue.length - 1) { modelIndex++; continue; }
       if (attemptsUsed >= MAX_CALLS) break;
-      // Whole queue exhausted — brief pause, then start over from the top.
+      // Whole queue exhausted â€” brief pause, then start over from the top.
       await sleep(1200);
       modelIndex = 0;
       continue;
@@ -1006,7 +1006,7 @@ async function generateWithRetries(context) {
 // ---------------------------------------------------------------------------
 async function fixGame({ lesson, game, feedback, lang, variant, genderTheme, subjectName }) {
   if (!getClientModel()) {
-    // Offline: honestly cannot "redo" — return the same game unchanged
+    // Offline: honestly cannot "redo" â€” return the same game unchanged
     const clone = JSON.parse(JSON.stringify(game));
     return { game: clone, staticVersion: deriveStaticVersion(clone), source: 'offline', note: 'offline mode: no AI to redo' };
   }
@@ -1036,12 +1036,12 @@ async function generateTripleWithRetries(context) {
       attemptsUsed++;
       const msg = err.message || 'unknown';
       lastErrors.push(`api error: ${msg}`);
-      // Bad key / auth: permanent — never worth rotating.
+      // Bad key / auth: permanent â€” never worth rotating.
       if (/401|403|unauthoriz|invalid api key|missing api key|api key required/i.test(msg)) break;
       // Quota/credits/availability: switch to the next configured model.
       if (modelIndex < queue.length - 1) { modelIndex++; continue; }
       if (attemptsUsed >= MAX_CALLS) break;
-      // Whole queue exhausted — brief pause, then start over from the top.
+      // Whole queue exhausted â€” brief pause, then start over from the top.
       await sleep(1200);
       modelIndex = 0;
       continue;
@@ -1081,7 +1081,7 @@ async function generateThree({ lesson, subjectName, variant, genderTheme, lang, 
     games: validation.games,
     staticVersions: validation.staticVersions,
     source: 'ai',
-    note: `OpenRouter triple · ${model || getClientModel()} · ${attempts} attempt(s)`,
+    note: `OpenRouter triple Â· ${model || getClientModel()} Â· ${attempts} attempt(s)`,
   };
 }
 
@@ -1108,7 +1108,7 @@ async function fixTriple({ lesson, currentTriple, feedback, lang, variant, gende
     games: validation.games,
     staticVersions: validation.staticVersions,
     source: 'ai',
-    note: `OpenRouter triple redo · ${getClientModel()}`,
+    note: `OpenRouter triple redo Â· ${getClientModel()}`,
   };
 }
 
@@ -1214,7 +1214,7 @@ async function regenerateFromFeedback({ previousJson, feedbackInstructions }) {
 }
 
 // ---------------------------------------------------------------------------
-// TRIPLE pack helpers — spec-compliant JSON shape:
+// TRIPLE pack helpers â€” spec-compliant JSON shape:
 //   { metadata: {...}, games: { airplane, whack_a_mole, flying_fruit } }
 // All three sub-games are returned at once so the teacher can play-test them
 // side by side. _ctx is preserved in metadata for a lossless regenerate call.
@@ -1393,7 +1393,7 @@ function convertLegacyGame(json) {
 // WRITTEN EXAM generation (a classic paper-style MCQ quiz).
 // One exam per lesson, written entirely in the lesson language, grounded in
 // the lesson's OWN text. Strict JSON contract, same safety + grounding rules
-// as the games, exported for the teacher's draft → edit → publish flow.
+// as the games, exported for the teacher's draft â†’ edit â†’ publish flow.
 // ---------------------------------------------------------------------------
 const EXAM_MAX_QUESTIONS = 6;
 
@@ -1411,8 +1411,8 @@ function examLangMismatch(questions, lang) {
   const arabic = (joined.match(/[\u0621-\u064A\u066E-\u06D3\u06D5\u0750-\u077F]/g) || []).length;
   const letters = (joined.match(/\p{L}/gu) || []).length || 1;
   const ratio = arabic / letters;
-  if (lang === 'ar' && ratio < 0.5) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN ARABIC — the lesson language is Arabic.';
-  if (lang !== 'ar' && ratio > 0.2) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN THE LESSON LANGUAGE — not Arabic.';
+  if (lang === 'ar' && ratio < 0.5) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN ARABIC â€” the lesson language is Arabic.';
+  if (lang !== 'ar' && ratio > 0.2) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN THE LESSON LANGUAGE â€” not Arabic.';
   return '';
 }
 
@@ -1575,10 +1575,10 @@ function generateExamOffline({ lesson, subjectName, lang, extraInstructions }) {
       const shuffled = shuffleArr(options);
       questions.push({
         id: `q${idx + 1}`,
-        question: `Which word belongs to the lesson « ${lesson.title} »?`,
+        question: `Which word belongs to the lesson Â« ${lesson.title} Â»?`,
         options: shuffled,
         correctIndex: shuffled.indexOf(correct),
-        explanation: `The word « ${correct} » is used in this lesson.`,
+        explanation: `The word Â« ${correct} Â» is used in this lesson.`,
       });
     });
     while (questions.length < 3) questions.push(questions[0] || null);
@@ -1592,7 +1592,7 @@ async function generateExam({ lesson, subjectName, lang = 'en', extraInstruction
     return { ...generateExamOffline(context), source: 'offline' };
   }
   const { validation, attempts, model } = await generateExamWithRetries(context);
-  return { questions: validation.questions, source: 'ai', note: `OpenRouter exam · ${model || getClientModel()} · ${attempts} attempt(s)` };
+  return { questions: validation.questions, source: 'ai', note: `OpenRouter exam Â· ${model || getClientModel()} Â· ${attempts} attempt(s)` };
 }
 
 module.exports = {
