@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 require('dotenv').config();
 
@@ -58,7 +58,7 @@ function main() {
   transaction(() => {
     const already = get("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'");
     if (already.n > 0) {
-      console.log('nabta is already seeded. Remove data/nabta.db to re-seed from scratch.');
+      console.log('nabta is already seeded. Remove data/bewize.db to re-seed from scratch.');
       return;
     }
 
@@ -67,14 +67,14 @@ function main() {
     for (const name of ['arabic', 'french', 'english', 'math']) subjects[name] = ensureSubject(name);
 
     // ---- users ------------------------------------------------------------
-    const admin = ensureUser('admin', 'admin@nabta.test', 'admin123', 'en');
-    const teacher1 = ensureUser('teacher', 'teacher@nabta.test', 'teacher123', 'en');
-    const teacher2 = ensureUser('teacher', 'teacher2@nabta.test', 'teacher123', 'fr');
+    const admin = ensureUser('admin', 'admin@bewize.test', 'admin123', 'en');
+    const teacher1 = ensureUser('teacher', 'teacher@bewize.test', 'teacher123', 'en');
+    const teacher2 = ensureUser('teacher', 'teacher2@bewize.test', 'teacher123', 'fr');
     const parent1 = ensureUser('parent', 'parent@home.test', 'parent123', 'en');
     const parent2 = ensureUser('parent', 'parent2@home.test', 'parent123', 'fr');
 
     // ---- children ---------------------------------------------------------
-    // Age is an independent column: Omar (8) is still in CP â€” children start
+    // Age is an independent column: Omar (8) is still in CP — children start
     // school at different ages, so the class is chosen directly by the parent.
     ensureChild(parent1.id, 'omar', 'omar123', 'Omar', 8, 'male', 'normale', 'ar', 'cp');
     ensureChild(parent1.id, 'sara', 'sara123', 'Sara', 9, 'female', 'normale', 'en', 'cm1');
@@ -83,7 +83,7 @@ function main() {
     // ---- lessons ----------------------------------------------------------
     // Each class has its OWN levels, decided by the teacher (per subject).
     // e.g. CP maths = 2 levels (Counting L1, Shapes L2); CM1 English = 2 levels.
-    const l1 = getOrCreateLesson(teacher1.id, subjects.math, 'Numbers and Counting 1â€“10', [
+    const l1 = getOrCreateLesson(teacher1.id, subjects.math, 'Numbers and Counting 1–10', [
       'Numbers 1 to 10: one, two, three, four, five, six, seven, eight, nine, ten.',
       'Counting tells us how many things there are.',
       'We can count stars, fingers, toys, and steps.',
@@ -103,26 +103,26 @@ function main() {
       'Learn the names of baby animals and play the match game.',
     ].join(' '), 1, 60, 1, 'cp');
 
-    getOrCreateLesson(teacher2.id, subjects.arabic, 'Ø£ÙŠØ§Ù… Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹', [
-      'Ø£ÙŠØ§Ù… Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ Ø³Ø¨Ø¹Ø© Ø£ÙŠØ§Ù…: Ø§Ù„Ø³Ø¨ØªØŒ Ø§Ù„Ø£Ø­Ø¯ØŒ Ø§Ù„Ø§Ø«Ù†ÙŠÙ†ØŒ Ø§Ù„Ø«Ù„Ø§Ø«Ø§Ø¡ØŒ Ø§Ù„Ø£Ø±Ø¨Ø¹Ø§Ø¡ØŒ Ø§Ù„Ø®Ù…ÙŠØ³ØŒ Ø§Ù„Ø¬Ù…Ø¹Ø©.',
-      'Ù†Ø¨Ø¯Ø£ Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ ÙŠÙˆÙ… Ø§Ù„Ø³Ø¨Øª ÙˆÙ†Ù†Ù‡ÙŠÙ‡ ÙŠÙˆÙ… Ø§Ù„Ø¬Ù…Ø¹Ø©.',
-      'Ù…Ù‚Ø§Ù„ Ø¹Ù† Ø£ÙŠØ§Ù… Ø§Ù„Ø£Ø³Ø¨ÙˆØ¹ Ù…Ø¹ Ù„Ø¹Ø¨Ø© ØªØ±ØªÙŠØ¨ Ø§Ù„ÙƒÙ„Ù…Ø§Øª.',
+    getOrCreateLesson(teacher2.id, subjects.arabic, 'أيام الأسبوع', [
+      'أيام الأسبوع سبعة أيام: السبت، الأحد، الاثنين، الثلاثاء، الأربعاء، الخميس، الجمعة.',
+      'نبدأ الأسبوع يوم السبت وننهيه يوم الجمعة.',
+      'مقال عن أيام الأسبوع مع لعبة ترتيب الكلمات.',
     ].join(' '), 1, 60, 1, 'cp');
 
     getOrCreateLesson(teacher2.id, subjects.french, 'Les couleurs', [
       'Les couleurs : rouge, bleu, vert, jaune, orange, violet, noir et blanc.',
-      'Le ciel est bleu, la pomme est rouge et lâ€™herbe est verte.',
+      'Le ciel est bleu, la pomme est rouge et l’herbe est verte.',
       'Retrouve les couleurs que tu connais dans le jeu de vocabulaire.',
     ].join(' '), 1, 60, 1, 'ce1');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Plural nouns: one apple, two apples', [
-      'We say one apple but two apples. Add -s (or -es) to make plurals: cat â†’ cats, box â†’ boxes.',
+      'We say one apple but two apples. Add -s (or -es) to make plurals: cat → cats, box → boxes.',
       'Some plurals change: one child, two children; one foot, two feet.',
       'Look at the words and choose their plural form in the game.',
     ].join(' '), 1, 60, 1, 'ce2');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Opposites: hot and cold, big and small', [
-      'Opposites are words with different meanings: hot â†” cold, big â†” small, up â†” down.',
+      'Opposites are words with different meanings: hot ↔ cold, big ↔ small, up ↔ down.',
       'Day is the opposite of night, and happy is the opposite of sad.',
       'Match every word with its opposite in the game.',
     ].join(' '), 2, 60, 2, 'ce2');
@@ -135,15 +135,15 @@ function main() {
     ].join(' '), 1, 60, 1, 'cm1');
 
     getOrCreateLesson(teacher1.id, subjects.english, 'Grammar: yesterday, last week (past simple)', [
-      'To speak about the past we often add -ed: walk â†’ walked, play â†’ played.',
-      'Some verbs change: go â†’ went, come â†’ came, see â†’ saw.',
+      'To speak about the past we often add -ed: walk → walked, play → played.',
+      'Some verbs change: go → went, come → came, see → saw.',
       'Yesterday I walked to school and I saw my friends.',
       'Choose the correct past form in the game.',
     ].join(' '), 2, 60, 2, 'cm1');
 
     getOrCreateLesson(teacher1.id, subjects.math, 'Multiplying by 10, 100 and 1000', [
-      'When you multiply by 10, the number grows 10 times bigger: 25 Ã— 10 = 250.',
-      'By 100: 25 Ã— 100 = 2500. By 1000: 25 Ã— 1000 = 25000.',
+      'When you multiply by 10, the number grows 10 times bigger: 25 × 10 = 250.',
+      'By 100: 25 × 100 = 2500. By 1000: 25 × 1000 = 25000.',
       'The digits move to the left and we add zeroes.',
       'Practise with the multiplication game.',
     ].join(' '), 1, 60, 1, 'cm2');
@@ -156,7 +156,7 @@ function main() {
 
     getOrCreateLesson(teacher1.id, subjects.math, 'Two-step equations', [
       'Some equations need two steps: 2x + 3 = 11. First remove 3: 2x = 8.',
-      'Then divide by 2: x = 4. Check: 2 Ã— 4 + 3 = 11. Correct!',
+      'Then divide by 2: x = 4. Check: 2 × 4 + 3 = 11. Correct!',
       'Practise balancing equations of two steps in the game.',
     ].join(' '), 2, 60, 2, 'sixieme');
 
@@ -233,11 +233,11 @@ function main() {
       }
     }
 
-    console.log('âˆš nabta seeded.');
-    console.log('  Admin : admin@nabta.test / admin123');
-    console.log('  Teacher: teacher@nabta.test / teacher123  (fr: teacher2@nabta.test / teacher123)');
+    console.log('√ nabta seeded.');
+    console.log('  Admin : admin@bewize.test / admin123');
+    console.log('  Teacher: teacher@bewize.test / teacher123  (fr: teacher2@bewize.test / teacher123)');
     console.log('  Parent : parent@home.test / parent123       (fr: parent2@home.test / parent123)');
-    console.log('  Kids   : omar / omar123 Â· sara / sara123 Â· max / max123');
+    console.log('  Kids   : omar / omar123 · sara / sara123 · max / max123');
   });
 }
 
