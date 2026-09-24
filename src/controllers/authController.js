@@ -153,7 +153,7 @@ function childLogin(req, res) {
   const loginId = String(req.body.child_login_id || '').trim();
   const password = String(req.body.password || '');
 
-  const child = Child.findByLoginId(loginId);
+  const child = Child.findByLoginOrName(loginId);
   if (!child || !bcrypt.compareSync(password, child.password_hash)) {
     req.flash('error', t('childAuth.failed'));
     return res.redirect('/child-login');

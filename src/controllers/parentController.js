@@ -9,6 +9,15 @@ const NAME_RE = /[^\p{L}\p{N}\s'\-]/u;
 const LOGIN_RE = /^[a-zA-Z0-9_-]{3,24}$/;
 const localNow = () => new Date().toISOString();
 
+// Build a short login id from a display name when the parent leaves it blank:
+// "Yassmine" -> "yassmine", "Jean-Luc" -> "jean_luc", Arabic-only names fall back to a random code.
+function slugifyLogin(name) {
+  let s = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  s = s.split(/[\s'\-]+/).filter(Boolean).join('_');
+  s = s.replace(/[^a-z0-9_]/g, '').slice(0, 24);
+  return s.length >= 3 ? s : '';
+}
+
 function ownChild(req, res) {
   return Child.findByIdOwned(Number(req.params.id), res.locals.user.id);
 }
@@ -90,11 +99,10 @@ function childCreate(req, res) {
 
   let loginId = v.child_login_id;
   if (!loginId) {
-    let candidate;
-    do {
-      candidate = 'kid' + Math.random().toString(36).slice(2, 6);
-    } while (Child.loginIdExists(candidate));
-    loginId = candidate;
+    const base = slugifyLogin(v.display_name) || 'kid' + Math.random().toString(36).slice(2, 6);
+    loginId = base;
+    let n = 2;
+    while (Child.loginIdExists(loginId)) loginId = `${base}_${n++}`;
   } else {
     if (!LOGIN_RE.test(loginId) || Child.loginIdExists(loginId)) {
       return bad(req, res, t('common.error'), '/parent/children/new');

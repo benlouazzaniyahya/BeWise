@@ -7,6 +7,14 @@ const findByIdOwned = (id, parentId) => get('SELECT * FROM children WHERE id = ?
 const listByParent = (parentId) => all('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC', parentId);
 const findByLoginId = (loginId) =>
   get('SELECT * FROM children WHERE lower(child_login_id) = lower(?)', loginId);
+// Allow login with either the login id or the child's display name (case-insensitive).
+// A name match is only accepted when it identifies exactly one child.
+const findByLoginOrName = (term) => {
+  const byLogin = findByLoginId(term);
+  if (byLogin) return byLogin;
+  const byName = all('SELECT * FROM children WHERE lower(display_name) = lower(?)', term);
+  return byName.length === 1 ? byName[0] : null;
+};
 const loginIdExists = (loginId) =>
   Boolean(get('SELECT 1 AS x FROM children WHERE child_login_id = ?', loginId));
 const listAllWithParentEmail = () =>
@@ -35,6 +43,6 @@ const deleteById = (id) => run('DELETE FROM children WHERE id = ?', id);
 const deleteByParent = (parentId) => run('DELETE FROM children WHERE parent_id = ?', parentId);
 
 module.exports = {
-  findById, findByIdOwned, listByParent, findByLoginId, loginIdExists,
+  findById, findByIdOwned, listByParent, findByLoginId, findByLoginOrName, loginIdExists,
   listAllWithParentEmail, create, update, updatePassword, deleteById, deleteByParent,
 };
