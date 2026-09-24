@@ -337,7 +337,13 @@ function gameReject(req, res) {
 async function gameFix(req, res) {
   const t = tFor(res.locals.lang);
   const game = Game.findFixById(Number(req.params.id));
-  if (!game || game.teacher_id !== res.locals.user.id) return notFound(res);
+  if (game && game.teacher_id !== res.locals.user.id) return notFound(res);
+  if (!game) {
+    // Game may have been replaced by an earlier regeneration job — nothing to
+    // redo against, so fall back to the lesson list instead of a raw 404.
+    req.flash('error', t('teacher.generationFailed'));
+    return res.redirect('/teacher');
+  }
   const feedback = String(req.body.feedback || '').trim().slice(0, 1200);
   if (!feedback || !gameJsonSafe(game)) {
     req.flash('error', t('common.error'));
@@ -370,16 +376,20 @@ function gameRegenerate(req, res) {
   const t = tFor(res.locals.lang);
   const game = Game.findReviewById(Number(req.params.id));
   if (!game || game.teacher_id !== res.locals.user.id) return notFound(res);
+  const lesson = Lesson.findById(game.lesson_id) || { level: 1 };
   generator.dispatch(game.lesson_id, [{
     variant: game.variant,
     genderTheme: game.gender_theme,
     template: game.template_type,
     lang: Subject.defaultLanguage(game.subject_name),
     extraInstructions: String(req.body.extraInstructions || '').trim().slice(0, 1200),
-    difficultyHint: Number(req.body.difficultyHint) || Lesson.findById(game.lesson_id).level,
+    difficultyHint: Number(req.body.difficultyHint) || lesson.level || 1,
   }]);
   req.flash('success', t('teacher.regenerated'));
-  res.redirect(`/teacher/games/${game.id}/preview`);
+  // The job replaces/removes this pending game once it succeeds, so the
+  // preview URL would 404. Land the teacher on the lesson page where each
+  // combo/game lives.
+  res.redirect(`/teacher/lessons/${game.lesson_id}`);
 }
 
 module.exports = {

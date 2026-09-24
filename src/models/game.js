@@ -17,7 +17,7 @@ const findReviewById = (id) =>
 
 const findFixById = (id) =>
   get(
-    `SELECT g.*, l.raw_lesson_text, l.level, l.title AS lesson_title, s.name AS subject_name
+    `SELECT g.*, l.raw_lesson_text, l.level, l.title AS lesson_title, l.teacher_id, s.name AS subject_name
      FROM games g JOIN lessons l ON l.id = g.lesson_id JOIN subjects s ON s.id = l.subject_id
      WHERE g.id = ?`,
     id,

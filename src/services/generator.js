@@ -24,23 +24,7 @@ async function processJob(job) {
     const lesson = Lesson.findById(job.lesson_id);
     const subject = Subject.findById(lesson.subject_id);
 
-    // clean older non-approved games for this combo before inserting fresh
-    // ones. For triple jobs, that means wiping any rows that match
-    // (lesson, variant, gender) AND template_type — for non-triple jobs it
-    // still wipes the whole combo since deleteNonApprovedForCombo with no
-    // templateType defaults to the full match.
     if (payload.triple) {
-      for (const tpl of TEMPLATES) {
-        Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, tpl);
-      }
-    } else {
-      Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, payload.template || null);
-    }
-
-    if (payload.triple) {
-      // One AI call, three rows (airplane + whack_a_mole + flying_fruit) for
-      // the same (lesson, variant, gender). Unique index covers template_type
-      // so all three rows can sit alongside each other in pending_review.
       const result = await ai.generateThree({
         lesson,
         subjectName: subject.name,
@@ -54,6 +38,10 @@ async function processJob(job) {
       for (const tpl of TEMPLATES) {
         const game = result.games[tpl];
         if (!game) continue;
+        // Replace the previous non-approved game for this combo/template only
+        // AFTER the new one succeeded, so a failed regen never destroys the
+        // existing pending version the teacher may already be reviewing.
+        Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, tpl);
         ids.push(Game.create({
           lessonId: lesson.id,
           variant: payload.variant,
@@ -81,6 +69,7 @@ async function processJob(job) {
       template,
     });
 
+    Game.deleteNonApprovedForCombo(lesson.id, payload.variant, payload.genderTheme, payload.template || null);
     const gameId = Game.create({
       lessonId: lesson.id,
       variant: payload.variant,
