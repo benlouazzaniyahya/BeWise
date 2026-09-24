@@ -39,7 +39,7 @@ function lessonsList(req, res) {
     subject_label: subjectLabel(res.locals.lang, l.subject_name),
     games: Game.listByLesson(l.id),
   }));
-  res.render('teacher/index', { page: 'teacher', titleKey: 'teacher.lessonsTitle', lessons, t });
+  res.render('teacher/index', { page: 'teacher', titleKey: 'teacher.lessonsTitle', lessons, t, confirmDrop: confirmDrop(t) });
 }
 
 function lessonNew(req, res) {
@@ -94,7 +94,7 @@ function lessonShow(req, res) {
   res.render('teacher/lesson-detail', {
     page: 'teacher', titleKey: 'teacher.lessonDetail', lesson, subject, games, jobs, busy,
     subject_label: subjectLabel(res.locals.lang, subject.name),
-    suggested, t, GENDERS, VARIANTS,
+    suggested, t, GENDERS, VARIANTS, confirmDrop: confirmDrop(t),
   });
 }
 
@@ -105,6 +105,8 @@ function lessonEdit(req, res) {
   const subjects = Subject.list().map((s) => ({ ...s, label: subjectLabel(res.locals.lang, s.name) }));
   res.render('teacher/lesson-form', { page: 'teacher', titleKey: 'teacher.editLesson', lesson, subjects, t, defaultGrade: lesson.school_level || 'cp' });
 }
+
+const confirmDrop = (t) => String(t('teacher.deleteConfirm')).replace(/'/g, '\\\'');
 
 function lessonUpdate(req, res) {
   const t = tFor(res.locals.lang);
@@ -122,6 +124,23 @@ function lessonUpdate(req, res) {
   });
   req.flash('success', t('teacher.lessonUpdated'));
   res.redirect(`/teacher/lessons/${lesson.id}`);
+}
+
+function lessonDelete(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  try {
+    // Clear any queued/running AI jobs first (gen_jobs has no FK), then the
+    // lesson itself — games, attempts, badges and progress cascade via FK.
+    Job.deleteByLesson(lesson.id);
+    Lesson.deleteById(lesson.id);
+  } catch (err) {
+    req.flash('error', t('common.error'));
+    return res.redirect(`/teacher/lessons/${lesson.id}`);
+  }
+  req.flash('success', t('teacher.lessonDeleted'));
+  res.redirect('/teacher');
 }
 
 // ---------------------------------------------------------------------------
@@ -393,7 +412,7 @@ function gameRegenerate(req, res) {
 }
 
 module.exports = {
-  subjectsPage, lessonsList, lessonNew, lessonCreate, lessonShow, lessonEdit, lessonUpdate,
+  subjectsPage, lessonsList, lessonNew, lessonCreate, lessonShow, lessonEdit, lessonUpdate, lessonDelete,
   lessonGenerate, lessonGenerateTriple, triplePreview, tripleApprove, tripleRegenerate,
   gamePreview, gameApprove, gameReject, gameFix, gameRegenerate,
 };

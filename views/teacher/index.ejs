@@ -28,7 +28,12 @@
             <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %> · <%= profileLabel(g.variant) %></span>
           <% }); %>
         </div>
-        <a class="btn btn-primary btn-sm" href="/teacher/lessons/<%= l.id %>"><%= t('common.view') %></a>
+        <div class="row-btns">
+          <a class="btn btn-primary btn-sm" href="/teacher/lessons/<%= l.id %>"><%= t('common.view') %></a>
+          <form class="inline" action="/teacher/lessons/<%= l.id %>/delete" method="post" onsubmit="return confirm('<%= confirmDrop %>');">
+            <button class="btn btn-danger btn-sm"><%= t('teacher.deleteLesson') %></button>
+          </form>
+        </div>
       </div>
     <% }); %>
   </div>

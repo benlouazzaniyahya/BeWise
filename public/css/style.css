@@ -140,6 +140,7 @@ body {
 textarea { resize: vertical; }
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .row-buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .inline-row { display: flex; gap: 8px; }
 .inline-row input { flex: 1; min-width: 140px; }
 .radio-row { display: flex; gap: 16px; flex-wrap: wrap; }

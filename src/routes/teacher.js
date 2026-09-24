@@ -15,6 +15,7 @@ router.post('/lessons', c.lessonCreate);
 router.get('/lessons/:id', c.lessonShow);
 router.get('/lessons/:id/edit', c.lessonEdit);
 router.post('/lessons/:id', c.lessonUpdate);
+router.post('/lessons/:id/delete', c.lessonDelete);
 router.post('/lessons/:id/generate', c.lessonGenerate);
 router.post('/lessons/:id/generate-triple', c.lessonGenerateTriple);
 

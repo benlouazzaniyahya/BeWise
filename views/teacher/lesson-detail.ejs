@@ -7,9 +7,12 @@
       <p class="muted small"><%= t('teacher.forSubject') %> <%= subject_label %> · <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> · <%= t('common.level') %> <%= lesson.level %> · <%= t('common.score') %> ≥ <%= lesson.target_score %>%</p>
       <h1><%= lesson.title %></h1>
     </div>
-    <div>
+    <div class="row-btns">
       <a class="btn btn-ghost" href="/teacher"><%= t('teacher.viewLessons') %></a>
       <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>/edit"><%= t('common.edit') %></a>
+      <form class="inline" action="/teacher/lessons/<%= lesson.id %>/delete" method="post" onsubmit="return confirm('<%= confirmDrop %>');">
+        <button class="btn btn-danger"><%= t('teacher.deleteLesson') %></button>
+      </form>
     </div>
   </div>
 
