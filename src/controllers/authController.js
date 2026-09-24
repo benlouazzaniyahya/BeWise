@@ -54,6 +54,7 @@ function loginPage(req, res) {
   const t = tFor(res.locals.lang);
   res.render('auth/login', {
     page: 'login', titleKey: 'auth.loginTitle', next: req.query.next || '/home',
+    mode: req.query.mode === 'child' ? 'child' : 'adult',
     googleEnabled: Boolean(oauth.configured()),
   });
 }
@@ -143,9 +144,9 @@ async function googleCallback(req, res) {
 // Child login (kid-friendly, child_id + password only)
 // ---------------------------------------------------------------------------
 function childLoginPage(req, res) {
+  // Merged into the main login page; keep old bookmarks working.
   if (res.locals.child) return res.redirect('/child');
-  const t = tFor(res.locals.lang);
-  res.render('auth/child-login', { page: 'childLogin', titleKey: 'childAuth.title' });
+  res.redirect('/login?mode=child');
 }
 
 function childLogin(req, res) {
@@ -156,7 +157,7 @@ function childLogin(req, res) {
   const child = Child.findByLoginOrName(loginId);
   if (!child || !bcrypt.compareSync(password, child.password_hash)) {
     req.flash('error', t('childAuth.failed'));
-    return res.redirect('/child-login');
+    return res.redirect('/login?mode=child');
   }
   setChildCookie(res, child.id);
   res.redirect('/child');

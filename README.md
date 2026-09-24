@@ -31,7 +31,7 @@ npm.cmd start            # http://localhost:3000
 | Kid     | `sara` / `sara123` (9, girl, English, standard) |
 | Kid     | `max` / `max123` (8, boy, French, special needs) |
 
-Kids sign in on the **Kid sign in** page (`/child-login`). Lesson 1 (Numbers and
+Kids sign in on the **Child tab** of the sign-in page (`/login?mode=child`). Lesson 1 (Numbers and
 Counting) ships with pre-approved games so you can play immediately.
 
 ## Configuration — `.env`

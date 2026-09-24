@@ -147,7 +147,7 @@ function setChildLocals(req, res, next) {
 function requireChild(req, res, next) {
   if (!res.locals.child) {
     req.flash('error', translate(res.locals.lang, 'err.loginRequired'));
-    return res.redirect('/child-login');
+    return res.redirect('/login?mode=child');
   }
   next();
 }

@@ -3,31 +3,50 @@
 <main class="wrap page">
   <div class="card auth-card">
     <h1><%= t('auth.loginTitle') %></h1>
-    <p class="muted"><%= t('auth.loginSub') %></p>
+    <p class="muted"><%= mode === 'child' ? t('childAuth.sub') : t('auth.loginSub') %></p>
 
-    <form action="/login" method="post" autocomplete="on">
-      <input type="hidden" name="next" value="<%= next || '/home' %>">
-      <div class="field">
-        <label for="email"><%= t('common.email') %></label>
-        <input id="email" name="email" type="email" required autofocus>
-      </div>
-      <div class="field">
-        <label for="password"><%= t('common.password') %></label>
-        <input id="password" name="password" type="password" required>
-      </div>
-      <button class="btn btn-primary btn-block" type="submit"><%= t('nav.signin') %></button>
-    </form>
+    <div class="auth-tabs" role="tablist">
+      <button type="button" class="auth-tab <%= mode === 'adult' ? 'active' : '' %>" data-tab="adult"><%= t('nav.signin') %></button>
+      <button type="button" class="auth-tab <%= mode === 'child' ? 'active' : '' %>" data-tab="child"><%= t('nav.childSignin') %></button>
+    </div>
 
-    <% if (googleEnabled) { %>
-      <div class="divider"><%= t('auth.or') %></div>
-      <a class="btn btn-google btn-block" href="/auth/google"><%= t('auth.google') %></a>
-    <% } %>
+    <section class="auth-pane" id="pane-adult" <%= mode === 'child' ? 'hidden' : '' %>>
+      <form action="/login" method="post" autocomplete="on">
+        <input type="hidden" name="next" value="<%= next || '/home' %>">
+        <div class="field">
+          <label for="email"><%= t('common.email') %></label>
+          <input id="email" name="email" type="email" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password"><%= t('common.password') %></label>
+          <input id="password" name="password" type="password" required>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit"><%= t('nav.signin') %></button>
+      </form>
 
-    <p class="center">
-      <a href="/signup"><%= t('auth.noAccount') %></a>
-      ·
-      <a href="/child-login"><%= t('nav.childSignin') %></a>
-    </p>
+      <% if (googleEnabled) { %>
+        <div class="divider"><%= t('auth.or') %></div>
+        <a class="btn btn-google btn-block" href="/auth/google"><%= t('auth.google') %></a>
+      <% } %>
+
+      <p class="center"><a href="/signup"><%= t('auth.noAccount') %></a></p>
+    </section>
+
+    <section class="auth-pane" id="pane-child" <%= mode === 'child' ? '' : 'hidden' %>>
+      <form action="/child-login" method="post" autocomplete="on">
+        <div class="field">
+          <label for="child_login_id"><%= t('childAuth.loginId') %></label>
+          <input id="child_login_id" name="child_login_id" type="text" required>
+          <p class="hint"><%= t('childAuth.loginNameHint') %></p>
+        </div>
+        <div class="field">
+          <label for="child_password"><%= t('childAuth.password') %></label>
+          <input id="child_password" name="password" type="password" required>
+        </div>
+        <button class="btn btn-success btn-block" type="submit"><%= t('nav.childSignin') %></button>
+      </form>
+      <p class="muted small"><%= t('childAuth.demo') %></p>
+    </section>
   </div>
 
   <div class="card demo-card">
@@ -35,4 +54,16 @@
     <p class="muted small"><%= t('auth.demoHintSub') %></p>
   </div>
 </main>
+
+<script>
+  (function () {
+    var tabs = document.querySelectorAll('.auth-tab');
+    var panes = { adult: document.getElementById('pane-adult'), child: document.getElementById('pane-child') };
+    function show(name) {
+      for (var key in panes) panes[key].hidden = key !== name;
+      tabs.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === name); });
+    }
+    tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab')); }); });
+  })();
+</script>
 <%- include('../partials/foot') %>
