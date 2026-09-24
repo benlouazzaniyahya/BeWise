@@ -50,6 +50,15 @@ const BLOCKED_TOKENS = [
   'قتل', 'دم', 'سلاح', 'جنسي', 'انتحار', 'مخدرات',
 ];
 
+// Arabic letters + diacritics, for word-boundary matching of Arabic tokens.
+const AR_LETTERS = '\u0621-\u064A\u066E-\u06D3\u06D5\u0750-\u077F';
+const AR_DIAC = '\u064B-\u0652\u0653-\u065F\u0670';
+const AR_PREFIX = '(?:[بوفكل]?ال)?';
+
+function isArabicToken(tok) {
+  return /[\u0621-\u064A\u066E-\u06D3]/.test(tok);
+}
+
 function safetyCheck(obj) {
   const strings = [];
   (function walk(v) {
@@ -62,7 +71,14 @@ function safetyCheck(obj) {
   const lower = joined.toLowerCase();
 
   for (const tok of BLOCKED_TOKENS) {
-    if (lower.includes(tok.toLowerCase())) return `blocked content: "${tok}"`;
+    // Whole-word matching only: plain substrings would false-positive on
+    // innocent words (e.g. english "die" in "diet", arabic "دم" in "قدم"/"دماغ").
+    if (isArabicToken(tok)) {
+      const re = new RegExp(`(?<![${AR_LETTERS}])${AR_PREFIX}${tok}(?![${AR_LETTERS}${AR_DIAC}])`);
+      if (re.test(lower)) return `blocked content: "${tok}"`;
+    } else if (new RegExp(`\\b${tok.toLowerCase()}\\b`).test(lower)) {
+      return `blocked content: "${tok}"`;
+    }
   }
   if (URL_RE.test(joined)) return 'contains a URL';
   if (EMAIL_RE.test(joined)) return 'contains an email address';
@@ -1386,6 +1402,7 @@ module.exports = {
   generateThree,
   fixGame,
   fixTriple,
+  safetyCheck,
   generateFromSpec,
   regenerateFromFeedback,
   generateTripleFromSpec,
