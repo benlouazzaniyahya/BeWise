@@ -1,0 +1,29 @@
+<%- include('partials/head') %>
+<main class="hero">
+  <div class="wrap">
+    <div class="hero-brand">
+      <img class="hero-logo" src="/assets/images/logo.png" alt="<%= t('app.name') %>">
+      <h1><%= t('app.name') %></h1>
+      <p class="muted"><%= t('app.tagline') %></p>
+    </div>
+
+    <h2 class="center"><%= t('lang.pickerTitle') %></h2>
+    <p class="center muted"><%= t('lang.pickerSub') %></p>
+
+    <form action="/language" method="post" class="lang-grid">
+      <input type="hidden" name="next" value="<%= next || '/home' %>">
+      <% ['en','fr','ar'].forEach(function(l){ %>
+        <button type="submit" name="lang" value="<%= l %>" class="lang-card">
+          <span class="lang-flag"><%= l === 'ar' ? 'ع' : l === 'fr' ? 'F' : 'En' %></span>
+          <span><%= {en:'English',fr:'Français',ar:'العربية'}[l] %></span>
+        </button>
+      <% }); %>
+    </form>
+
+    <div class="center auth-buttons">
+      <a href="/signup" class="btn btn-primary"><%= t('nav.signup') %></a>
+      <a href="/login" class="btn btn-ghost"><%= t('nav.signin') %></a>
+    </div>
+  </div>
+</main>
+<%- include('partials/foot') %>

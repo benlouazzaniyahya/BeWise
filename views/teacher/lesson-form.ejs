@@ -1,0 +1,59 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <h1><%= t(lesson ? 'teacher.editLesson' : 'teacher.newLesson') %></h1>
+    <a class="btn btn-ghost" href="/teacher"><%= t('teacher.viewLessons') %></a>
+  </div>
+
+  <div class="card">
+    <form action="<%= lesson ? '/teacher/lessons/' + lesson.id : '/teacher/lessons' %>" method="post">
+      <div class="field">
+        <label for="title"><%= t('teacher.lessonTitle') %></label>
+        <input id="title" name="title" type="text" required value="<%= lesson ? lesson.title : '' %>">
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="subject_id"><%= t('teacher.subject') %></label>
+          <select id="subject_id" name="subject_id">
+            <% subjects.forEach(function(s){ %>
+              <option value="<%= s.id %>" <%= lesson && lesson.subject_id === s.id ? 'selected' : '' %>><%= s.label %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="school_level"><%= t('school.title') %></label>
+          <select id="school_level" name="school_level">
+            <% var selGrade = lesson ? (lesson.school_level || defaultGrade) : defaultGrade; %>
+            <% SCHOOL_LEVELS.forEach(function(g){ %>
+              <option value="<%= g.code %>" <%= selGrade === g.code ? 'selected' : '' %>><%= gradeLabel(g.code) %></option>
+            <% }); %>
+          </select>
+          <p class="hint"><%= t('school.lessonHint') %></p>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="level"><%= t('common.level') %> (1-<%= MAX_LEVEL %>)</label>
+          <input id="level" name="level" type="number" min="1" max="<%= MAX_LEVEL %>" value="<%= lesson ? lesson.level : 1 %>">
+          <p class="hint"><%= t('teacher.levelHint') %></p>
+        </div>
+        <div class="field">
+          <label for="target_score"><%= t('teacher.targetScore') %></label>
+          <input id="target_score" name="target_score" type="number" min="1" max="100" value="<%= lesson ? lesson.target_score : 60 %>">
+          <p class="hint"><%= t('teacher.targetScoreHint') %></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="raw_lesson_text"><%= t('teacher.content') %></label>
+        <textarea id="raw_lesson_text" name="raw_lesson_text" rows="8" required placeholder="<%= t('teacher.contentPlaceholder') %>"><%= lesson ? lesson.raw_lesson_text : '' %></textarea>
+      </div>
+
+      <button class="btn btn-primary" type="submit"><%= t(lesson ? 'common.save' : 'teacher.saveLesson') %></button>
+    </form>
+  </div>
+</main>
+<%- include('../partials/foot') %>

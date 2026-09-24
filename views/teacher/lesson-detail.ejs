@@ -1,0 +1,181 @@
+<%- include('../partials/head') %>
+<% if (busy) { %><meta http-equiv="refresh" content="5"><% } %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small"><%= t('teacher.forSubject') %> <%= subject_label %> · <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> · <%= t('common.level') %> <%= lesson.level %> · <%= t('common.score') %> ≥ <%= lesson.target_score %>%</p>
+      <h1><%= lesson.title %></h1>
+    </div>
+    <div class="row-btns">
+      <a class="btn btn-ghost" href="/teacher"><%= t('teacher.viewLessons') %></a>
+      <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>/edit"><%= t('common.edit') %></a>
+      <form class="inline" action="/teacher/lessons/<%= lesson.id %>/delete" method="post" onsubmit="return confirm('<%= confirmDrop %>');">
+        <button class="btn btn-danger"><%= t('teacher.deleteLesson') %></button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary><%= t('teacher.lessonContentPreview') %></summary>
+      <p class="prewrap"><%= lesson.raw_lesson_text %></p>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2><%= t('teacher.generateGames') %></h2>
+    <form action="/teacher/lessons/<%= lesson.id %>/generate" method="post">
+      <div class="row-2">
+        <div class="field">
+          <label for="difficultyHint"><%= t('common.level') %> <%= t('adaptive.delegate') %></label>
+          <select id="difficultyHint" name="difficultyHint">
+            <% var maxHintLv = (typeof MAX_LEVEL === 'number') ? MAX_LEVEL : 10; for (var lv = 1; lv <= maxHintLv; lv++) { %>
+              <option value="<%= lv %>" <%= (suggested === lv) ? 'selected' : '' %>><%= lv %></option>
+            <% } %>
+          </select>
+          <p class="hint"><%= t('teacher.generateHint') %></p>
+        </div>
+        <div class="field">
+          <label for="template"><%= t('teacher.template') %></label>
+          <select id="template" name="template">
+            <option value=""><%= t('teacher.templateAuto') %></option>
+            <option value="airplane"><%= templateLabel('airplane') %></option>
+            <option value="whack_a_mole"><%= templateLabel('whack_a_mole') %></option>
+            <option value="flying_fruit"><%= templateLabel('flying_fruit') %></option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label for="extraInstructions"><%= t('teacher.extraInstructions') %></label>
+          <input id="extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+        </div>
+      </div>
+
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.generateGames') %></button>
+      <% if (busy) { %><span class="muted small"><%= t('teacher.generating') %></span><% } %>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2><%= t('teacher.tripleHeading') %></h2>
+    <p class="hint"><%= t('teacher.tripleSub') %></p>
+    <form action="/teacher/lessons/<%= lesson.id %>/generate-triple" method="post">
+      <div class="row-2">
+        <div class="field">
+          <label for="triple-variant"><%= t('teacher.profile') %></label>
+          <select id="triple-variant" name="variant">
+            <% VARIANTS.forEach(function(v) { %>
+              <option value="<%= v %>"><%= profileLabel(v) %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label><%= t('teacher.forAllGenders') %></label>
+          <p class="hint"><%= t('teacher.forAllGendersHint') %></p>
+        </div>
+      </div>
+      <div class="field">
+        <label for="triple-extraInstructions"><%= t('teacher.extraInstructions') %></label>
+        <input id="triple-extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+      </div>
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.tripleGenerate') %></button>
+    </form>
+  </div>
+
+  <% if (jobs.length) { %>
+    <div class="card">
+      <h2><%= t('teacher.aiMode') %></h2>
+      <ul class="job-list">
+        <% jobs.slice(0,5).forEach(function(j){ %>
+          <li>
+            <span class="chip chip-<%= j.status %>"><%= j.status %></span>
+            <%= j.payload ? t('teacher.forAllGenders') : '' %>
+            <span class="small muted"><%= t({pending:'teacher.statusPending',running:'teacher.generating',done:'gen.done',failed:'teacher.generationFailed'}[j.status] || '') %></span>
+          </li>
+        <% }); %>
+      </ul>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= t('teacher.gamesTitle') %></h2>
+    <% if (!games.length) { %>
+      <p class="muted"><%= t('teacher.noGames') %></p>
+    <% } %>
+    <% games.forEach(function(g){ %>
+      <div class="game-row">
+        <div class="game-row-meta">
+          <strong><%= profileLabel(g.variant) %></strong>
+          <span class="chip chip-template"><%= templateLabel(g.template_type) %></span>
+          <span class="chip chip-<%= g.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[g.status]) %></span>
+          <% if (g.notes) { %><span class="small muted">(<%= g.notes %>)</span><% } %>
+        </div>
+        <div class="game-row-actions">
+          <% if (g.status === 'pending_review') { %>
+            <a class="btn btn-primary btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.previewApprove') %></a>
+            <form action="/teacher/games/<%= g.id %>/approve" method="post">
+              <button class="btn btn-success btn-sm" type="submit"><%= t('teacher.approvePublish') %></button>
+            </form>
+            <form action="/teacher/games/<%= g.id %>/reject" method="post">
+              <button class="btn btn-danger btn-sm" type="submit"><%= t('teacher.reject') %></button>
+            </form>
+          <% } else { %>
+            <a class="btn btn-ghost btn-sm" href="/teacher/games/<%= g.id %>/preview"><%= t('teacher.preview') %></a>
+            <% if (g.status === 'rejected') { %>
+              <form action="/teacher/games/<%= g.id %>/approve" method="post">
+                <button class="btn btn-success btn-sm" type="submit"><%= t('teacher.approvePublish') %></button>
+              </form>
+            <% } %>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<div class="card">
+    <h2><%= t('exam.cardTitle') %></h2>
+    <p class="hint"><%= t('exam.cardSub') %></p>
+    <div class="row-2">
+      <div class="field">
+        <p class="hint"><%= t('exam.generateLabel') %></p>
+      </div>
+    </div>
+    <div class="row-btns">
+      <form class="inline" action="/teacher/lessons/<%= lesson.id %>/exams/generate" method="post">
+        <input name="extraInstructions" type="text" placeholder="<%= t('exam.extraInstructionsPlaceholder') %>" class="input-inline">
+        <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('exam.generate') %></button>
+        <% if (busy) { %><span class="muted small"><%= t('exam.generating') %></span><% } %>
+      </form>
+      <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>/exams/new"><%= t('exam.createBlank') %></a>
+    </div>
+
+    <% if (!exams.length) { %>
+      <p class="muted"><%= t('exam.noExams') %></p>
+    <% } %>
+    <% exams.forEach(function(e){ %>
+      <div class="game-row">
+        <div class="game-row-meta">
+          <span class="chip chip-<%= e.status %>"><%= t({draft:'exam.statusDraft',approved:'exam.statusApproved'}[e.status]) %></span>
+          <span class="small muted"><%= e.questionCount %> <%= t('exam.questionsCount') %> <% if (e.notes) { %>(<%= e.notes %>)<% } %></span>
+        </div>
+        <div class="game-row-actions">
+          <a class="btn btn-ghost btn-sm" href="/teacher/exams/<%= e.id %>/edit"><%= t('common.edit') %></a>
+          <% if (e.status === 'approved') { %>
+            <form action="/teacher/exams/<%= e.id %>/unpublish" method="post">
+              <button class="btn btn-ghost btn-sm" type="submit"><%= t('exam.unpublish') %></button>
+            </form>
+          <% } else { %>
+            <form action="/teacher/exams/<%= e.id %>/approve" method="post">
+              <button class="btn btn-success btn-sm" type="submit"><%= t('exam.publish') %></button>
+            </form>
+          <% } %>
+          <form action="/teacher/exams/<%= e.id %>/delete" method="post" onsubmit="return confirm('<%= t('exam.deleteConfirm') %>');">
+            <button class="btn btn-danger btn-sm" type="submit"><%= t('common.delete') %></button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</main>
+<%- include('../partials/foot') %>

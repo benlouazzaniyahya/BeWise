@@ -1,0 +1,90 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small"><%= subject_label %> · <%= t('common.level') %> <%= game.level %> · <%= t('common.score') %> ≥ <%= game.target_score %>%</p>
+      <h1><%= t('teacher.previewTitle') %> — <%= game.lesson_title %></h1>
+      <p class="muted small">
+        <%= t('teacher.templateType') %>: <strong><%= templateLabel(game.template_type) %></strong> ·
+        <%= t('teacher.variantNormal') %>/<%= t('teacher.variantAutism') %>/<%= t('teacher.variantHearing') %>: <strong><%= profileLabel(game.variant) %></strong>
+        <span class="chip chip-<%= game.status %>"><%= t({draft:'teacher.statusDraft',pending_review:'teacher.statusPending',approved:'teacher.statusApproved',rejected:'teacher.statusRejected'}[game.status]) %></span>
+      </p>
+    </div>
+    <a class="btn btn-ghost" href="/teacher/lessons/<%= game.lesson_id %>"><%= t('teacher.viewLessons') %></a>
+  </div>
+
+  <% if (game.status === 'approved') { %>
+    <div class="flash flash-success"><%= t('teacher.published') %></div>
+  <% } %>
+
+  <% if (gameJson) { %>
+    <div class="card game-stage">
+      <p class="small muted"><%= t('teacher.previewSub') %></p>
+      <div id="game-preview"></div>
+    </div>
+
+    <script type="application/json" id="game-data"><%- JSON.stringify(gameJson).replace(/</g, '\\u003c') %></script>
+
+    <div class="review-actions">
+      <form action="/teacher/games/<%= game.id %>/approve" method="post">
+        <button class="btn btn-success" type="submit"><%= t('teacher.approvePublish') %></button>
+      </form>
+      <form action="/teacher/games/<%= game.id %>/reject" method="post">
+        <button class="btn btn-danger" type="submit"><%= t('teacher.reject') %></button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><%= t('teacher.redoTitle') %></h2>
+      <p class="hint"><%= t('teacher.redoHint') %></p>
+      <form action="/teacher/games/<%= game.id %>/fix" method="post">
+        <div class="field">
+          <label for="feedback"><%= t('teacher.redoFeedback') %></label>
+          <textarea id="feedback" name="feedback" rows="3" required placeholder="<%= t('teacher.redoPlaceholder') %>"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit"><%= t('teacher.redoTitle') %></button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2><%= t('teacher.regenerate') %></h2>
+      <form action="/teacher/games/<%= game.id %>/regenerate" method="post">
+        <div class="field">
+          <label for="extraInstructions"><%= t('teacher.extraInstructions') %></label>
+          <input id="extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+          <p class="hint"><%= t('teacher.regenerateHint') %></p>
+        </div>
+        <button class="btn btn-primary" type="submit"><%= t('teacher.regenerate') %></button>
+      </form>
+    </div>
+  <% } else { %>
+    <div class="card empty"><%= t('teacher.generationFailed') %></div>
+  <% } %>
+
+  <% if (staticVersion && staticVersion.sections) { %>
+    <div class="card">
+      <h2><%= t('teacher.staticTitle') %></h2>
+      <p class="hint"><%= t('teacher.staticHint') %></p>
+      <% staticVersion.sections.forEach(function(s){ %>
+        <div class="static-section">
+          <strong><%= s.title %></strong>
+          <% if (s.body) { %><p class="prewrap"><%= s.body %></p><% } %>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+</main>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('game-preview');
+    var dataEl = document.getElementById('game-data');
+    if (el && dataEl && window.Bewize) {
+      try {
+        var game = JSON.parse(dataEl.textContent);
+        window.Bewize.previewGame(el, game);
+      } catch (e) { el.textContent = 'Invalid game JSON'; }
+    }
+  });
+</script>
+<%- include('../partials/foot') %>

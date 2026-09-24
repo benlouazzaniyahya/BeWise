@@ -1,0 +1,176 @@
+<%- include('../partials/head') %>
+<% if (busyTriple) { %><meta http-equiv="refresh" content="5"><% } %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <div class="page-head">
+    <div>
+      <p class="muted small">
+        <%= t('teacher.forSubject') %> <%= subject_label %> ·
+        <span class="chip chip-school"><%= gradeLabel(lesson.school_level || 'cp') %></span> ·
+        <%= t('teacher.profile') %>: <%= profileLabel(variant) %> ·
+        <%= t('teacher.forAllGenders') %>
+      </p>
+      <h1><%= t('teacher.tripleTitle') %> — <%= lesson.title %></h1>
+      <p class="muted"><%= t('teacher.tripleSub') %></p>
+    </div>
+    <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>"><%= t('teacher.viewLessons') %></a>
+  </div>
+
+  <% if (busyTriple) { %>
+    <div class="flash flash-success"><%= t('teacher.tripleGenerating') %></div>
+  <% } else if (tripleFailed) { %>
+    <div class="flash flash-error"><%= t('teacher.tripleFailed', { reason: tripleFailed.slice(0, 240) }) %></div>
+  <% } %>
+
+  <%
+    const LABELS = { airplane: '🛩️ Airplane', whack_a_mole: '🔨 Whack-A-Mole', flying_fruit: '🍉 Flying Fruit' };
+    const ORDER  = ['airplane', 'whack_a_mole', 'flying_fruit'];
+    const anyPending = ORDER.some((k) => games[k]);
+    const anyPlayable = ORDER.some((k) => games[k] || approved[k]);
+    const firstPlayable = ORDER.find((k) => games[k] || approved[k]);
+  %>
+
+  <% if (anyPlayable) { %>
+    <div class="triple-tabs">
+      <% ORDER.forEach(function (tpl) { if (games[tpl] || approved[tpl]) { %>
+        <button type="button" class="tab-btn<%= tpl === firstPlayable ? ' active' : '' %>" data-tab="<%= tpl %>"><%= LABELS[tpl] %></button>
+      <% } }); %>
+    </div>
+  <% } %>
+
+  <% if (!anyPending && !anyPlayable) { %>
+    <div class="card empty">
+      <%= t('teacher.tripleEmpty') %>
+    </div>
+  <% } %>
+
+  <% ORDER.forEach(function(tpl) { %>
+    <% var row = games[tpl]; var pubRow = approved[tpl]; %>
+    <div class="card preview-slot<%= (row || pubRow) ? ' has-game' : '' %>" data-slot="<%= tpl %>" <%= (anyPlayable && tpl !== firstPlayable) ? 'hidden' : '' %>>
+      <div class="page-head" style="align-items:flex-start;">
+        <div>
+          <h2 style="margin:0"><%= LABELS[tpl] %></h2>
+          <% if (row) { %>
+            <span class="chip chip-pending_review"><%= t('teacher.triplePending') %></span>
+          <% } %>
+        </div>
+        <% if (row || pubRow) { %>
+          <div class="slot-tools">
+            <button type="button" class="btn btn-ghost btn-sm" data-replay="<%= tpl %>"><%= t('teacher.replay') %></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-next="<%= tpl %>"><%= t('teacher.nextGame') %> ▸</button>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (row) { %>
+        <div class="game-stage" data-game-stage data-template="<%= tpl %>">
+          <p class="small muted"><%= t('teacher.triplePreviewEach') %></p>
+          <div id="game-preview-<%= tpl %>"></div>
+        </div>
+        <script type="application/json" id="game-data-<%= tpl %>"><%- row.game_json.replace(/</g, '\\u003c') %></script>
+      <% } else if (pubRow) { %>
+        <p class="small muted"><%= t('teacher.tripleApprovedNote') %></p>
+        <div class="game-stage" data-game-stage data-template="<%= tpl %>">
+          <div id="game-preview-<%= tpl %>"></div>
+        </div>
+        <script type="application/json" id="game-data-<%= tpl %>"><%- pubRow.game_json.replace(/</g, '\\u003c') %></script>
+      <% } else { %>
+        <p class="muted small"><%= busyTriple ? t('teacher.tripleWorking') : '—' %></p>
+      <% } %>
+    </div>
+  <% }); %>
+
+  <% if (anyPending) { %>
+    <div class="card">
+      <h2><%= t('teacher.tripleApproveAll') %></h2>
+      <form action="/teacher/lessons/<%= lesson.id %>/triple-approve" method="post">
+        <input type="hidden" name="variant" value="<%= variant %>">
+        <input type="hidden" name="genderTheme" value="<%= genderTheme %>">
+        <% ORDER.forEach(function(tpl) { if (games[tpl]) { %>
+          <input type="hidden" name="gameIds[]" value="<%= games[tpl].id %>">
+        <% } }); %>
+        <button class="btn btn-success" type="submit"><%= t('teacher.tripleApproveAll') %></button>
+      </form>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= t('teacher.tripleRegenerate') %></h2>
+    <form action="/teacher/lessons/<%= lesson.id %>/triple-regenerate" method="post">
+      <div class="row-2">
+        <div class="field">
+          <label for="triple-variant"><%= t('teacher.profile') %></label>
+          <select id="triple-variant" name="variant">
+            <% VARIANTS.forEach(function(v) { %>
+              <option value="<%= v %>" <%= v === variant ? 'selected' : '' %>><%= profileLabel(v) %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label><%= t('teacher.forAllGenders') %></label>
+          <p class="hint"><%= t('teacher.forAllGendersHint') %></p>
+        </div>
+      </div>
+      <div class="field">
+        <label for="triple-extraInstructions"><%= t('teacher.extraInstructions') %></label>
+        <input id="triple-extraInstructions" name="extraInstructions" type="text" placeholder="<%= t('teacher.extraInstructionsPlaceholder') %>">
+      </div>
+      <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('teacher.tripleRegenerate') %></button>
+      <% if (busy) { %><span class="muted small"><%= t('teacher.generating') %></span><% } %>
+    </form>
+  </div>
+</main>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.Bewize) return;
+    var order = ['airplane', 'whack_a_mole', 'flying_fruit'];
+
+    function $(sel, root) { return (root || document).querySelector(sel); }
+    function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+    function mountPreview(tpl) {
+      var stage = $('[data-game-stage][data-template="' + tpl + '"]');
+      var dataEl = document.getElementById('game-data-' + tpl);
+      if (!stage || !dataEl) return;
+      try {
+        var game = JSON.parse(dataEl.textContent);
+        var mount = stage.querySelector('#game-preview-' + tpl);
+        window.Bewize.previewGame(mount, game);
+      } catch (e) { /* ignore */ }
+    }
+
+    var playable = order.filter(function (tpl) {
+      var slot = $('[data-slot="' + tpl + '"]');
+      return slot && slot.classList.contains('has-game');
+    });
+
+    function setCurrent(tpl) {
+      order.forEach(function (t) {
+        var slot = $('[data-slot="' + t + '"]');
+        if (slot) slot.hidden = t !== tpl;
+      });
+      $$('.triple-tabs .tab-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tpl);
+      });
+    }
+
+    $$('.triple-tabs .tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { setCurrent(btn.getAttribute('data-tab')); });
+    });
+
+    $$('[data-replay]').forEach(function (btn) {
+      btn.addEventListener('click', function () { mountPreview(btn.getAttribute('data-replay')); });
+    });
+
+    order.forEach(function (tpl) {
+      var btn = $('[data-next="' + tpl + '"]');
+      if (!btn) return;
+      var i = playable.indexOf(tpl);
+      btn.hidden = i === -1 || i >= playable.length - 1;
+      btn.addEventListener('click', function () { if (i < playable.length - 1) setCurrent(playable[i + 1]); });
+    });
+
+    playable.forEach(mountPreview);
+  });
+</script>
+<%- include('../partials/foot') %>
