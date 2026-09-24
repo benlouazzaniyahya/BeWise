@@ -12,6 +12,101 @@
   </div>
 
   <div class="card">
+    <h2><%= t('admin.chartsTitle') %></h2>
+    <% var maxPrefG = 1, maxLesson = 1; %>
+    <% prefByGender.forEach(function(r){ maxPrefG = Math.max(maxPrefG, r.games + r.exams); }); %>
+    <% passByLesson.forEach(function(r){ maxLesson = Math.max(maxLesson, r.games + r.exams); }); %>
+    <% var hasPref = prefTotal > 0 || prefByGender.some(function(r){ return r.games + r.exams > 0; }); %>
+    <% var hasSpeed = speedByGender.some(function(r){ return r.active > 0; }); %>
+    <% if (!hasPref && !hasSpeed && !passByLesson.length) { %>
+      <p class="muted"><%= t('admin.chartNoData') %></p>
+    <% } else { %>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <h3><%= t('admin.overallShare') %></h3>
+        <% if (prefTotal === 0) { %>
+          <p class="muted small"><%= t('admin.prefNone') %></p>
+        <% } else { %>
+          <% var gPct = Math.round(((pref.games || 0) / prefTotal) * 100); var ePct = 100 - gPct; var C = 2 * Math.PI * 42; %>
+          <div class="donut-wrap">
+            <svg width="150" height="150" viewBox="0 0 120 120" role="img" aria-label="<%= t('admin.overallShare') %>">
+              <circle cx="60" cy="60" r="42" fill="none" stroke="#eceff3" stroke-width="20"></circle>
+              <% if (gPct > 0) { %>
+              <circle cx="60" cy="60" r="42" fill="none" stroke="#3b82f6" stroke-width="20" stroke-dasharray="<%= ((gPct / 100) * C).toFixed(2) %> <%= C.toFixed(2) %>" transform="rotate(-90 60 60)"></circle>
+              <% } %>
+              <% if (ePct > 0) { %>
+              <circle cx="60" cy="60" r="42" fill="none" stroke="#f59e0b" stroke-width="20" stroke-dasharray="<%= ((ePct / 100) * C).toFixed(2) %> <%= C.toFixed(2) %>" stroke-dashoffset="<%= (-((gPct / 100) * C)).toFixed(2) %>" transform="rotate(-90 60 60)"></circle>
+              <% } %>
+              <text x="60" y="57" text-anchor="middle" class="donut-label"><%= pref.games || 0 %> / <%= pref.exams || 0 %></text>
+              <text x="60" y="74" text-anchor="middle" class="donut-sub"><%= t('admin.prefAttempts') %></text>
+            </svg>
+          </div>
+          <p class="hint small"><span class="dot dot-games"></span> <%= Math.round(((pref.games || 0) / prefTotal) * 100) %>% <%= t('admin.prefGames') %> &nbsp; <span class="dot dot-exams"></span> <%= ePct %>% <%= t('admin.prefExam') %></p>
+        <% } %>
+      </div>
+
+      <div class="chart-box">
+        <h3><%= t('admin.prefByGenderTitle') %></h3>
+        <% if (!prefByGender.some(function(r){ return r.games + r.exams > 0; })) { %>
+          <p class="muted small"><%= t('admin.prefNone') %></p>
+        <% } else { %>
+          <% prefByGender.forEach(function(r){ %>
+            <div class="hchart-row">
+              <span class="hchart-label"><%= t(r.gender === 'male' ? 'parent.male' : 'parent.female') %></span>
+              <span class="hchart-bar">
+                <% if (r.games > 0) { %><span class="hchart-fill bar-games" style="width:<%= Math.round((r.games / maxPrefG) * 100) %>%"></span><% } %>
+                <% if (r.exams > 0) { %><span class="hchart-fill bar-exams" style="width:<%= Math.round((r.exams / maxPrefG) * 100) %>%"></span><% } %>
+              </span>
+              <span class="hchart-nums"><%= r.games %> / <%= r.exams %></span>
+            </div>
+          <% }); %>
+          <p class="hint small"><span class="dot dot-games"></span> <%= t('admin.prefGames') %> &nbsp; <span class="dot dot-exams"></span> <%= t('admin.prefExam') %></p>
+        <% } %>
+      </div>
+
+      <div class="chart-box">
+        <h3><%= t('admin.speedByGenderTitle') %></h3>
+        <% if (!speedByGender.some(function(r){ return r.active > 0; })) { %>
+          <p class="muted small"><%= t('admin.speedNoData') %></p>
+        <% } else { %>
+          <% speedByGender.forEach(function(r){ var mx = Math.max(1, r.active); %>
+            <div class="hchart-row">
+              <span class="hchart-label"><%= t(r.gender === 'male' ? 'parent.male' : 'parent.female') %></span>
+              <span class="hchart-bar">
+                <% if (r.faster > 0) { %><span class="hchart-fill bar-faster" style="width:<%= Math.round((r.faster / mx) * 100) %>%"></span><% } %>
+                <% if (r.about > 0) { %><span class="hchart-fill bar-about" style="width:<%= Math.round((r.about / mx) * 100) %>%"></span><% } %>
+                <% if (r.slower > 0) { %><span class="hchart-fill bar-slower" style="width:<%= Math.round((r.slower / mx) * 100) %>%"></span><% } %>
+              </span>
+              <span class="hchart-nums"><%= r.faster %>/<%= r.about %>/<%= r.slower %><%= r.avgScore !== null ? ' · ' + r.avgScore.toFixed(2) : '' %></span>
+            </div>
+          <% }); %>
+          <p class="hint small"><span class="dot dot-faster"></span> <%= t('admin.speedFaster') %> &nbsp; <span class="dot dot-about"></span> <%= t('admin.speedAbout') %> &nbsp; <span class="dot dot-slower"></span> <%= t('admin.speedSlower') %> &nbsp; · <%= t('admin.avgScore') %></p>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="chart-box full">
+      <h3><%= t('admin.passByLessonTitle') %></h3>
+      <p class="hint small"><%= t('admin.passByLessonSub') %></p>
+      <% if (!passByLesson.length) { %>
+        <p class="muted small"><%= t('admin.prefNone') %></p>
+      <% } else { %>
+        <% passByLesson.forEach(function(r){ %>
+          <div class="hchart-row">
+            <span class="hchart-label"><%= r.lesson_title %></span>
+            <span class="hchart-bar">
+              <% if (r.games > 0) { %><span class="hchart-fill bar-games" style="width:<%= Math.round((r.games / maxLesson) * 100) %>%"></span><% } %>
+              <% if (r.exams > 0) { %><span class="hchart-fill bar-exams" style="width:<%= Math.round((r.exams / maxLesson) * 100) %>%"></span><% } %>
+            </span>
+            <span class="hchart-nums"><%= r.games %> / <%= r.exams %></span>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card">
     <h2><%= t('admin.preferenceTitle') %></h2>
     <p class="hint"><%= t('admin.preferenceSub') %></p>
     <% if (prefTotal === 0) { %>

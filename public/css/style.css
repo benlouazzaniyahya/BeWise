@@ -495,3 +495,26 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 .chip-about { background: rgba(148, 163, 184, 0.25); color: #e2e8f0; }
 .chip-slower { background: rgba(244, 63, 94, 0.25); color: #fecdd3; }
 .chip-none { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+/* Admin charts */
+.chart-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 18px; }
+.chart-box { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius); padding: 14px 16px; }
+.chart-box h3 { font-size: 0.95rem; margin: 0 0 12px; }
+.chart-box.full { margin-top: 4px; }
+.donut-wrap { display: flex; justify-content: center; margin-bottom: 8px; }
+.donut-label { font-size: 1.05rem; font-weight: 700; fill: #fff; }
+.donut-sub { font-size: 0.7rem; fill: #9ca3af; }
+.hchart-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.hchart-label { flex: 0 0 110px; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hchart-bar { flex: 1 1 auto; display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.1); direction: ltr; }
+.hchart-fill { height: 100%; }
+.hchart-nums { flex: 0 0 84px; font-size: 0.82rem; color: #cbd5e1; text-align: right; white-space: nowrap; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.dot-games { background: #3b82f6; }
+.dot-exams { background: #f59e0b; }
+.bar-faster { background: #4ade80; }
+.bar-about { background: #94a3b8; }
+.bar-slower { background: #f43f5e; }
+.dot-faster { background: #4ade80; }
+.dot-about { background: #94a3b8; }
+.dot-slower { background: #f43f5e; }

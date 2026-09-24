@@ -25,7 +25,7 @@ const preferenceTotals = () =>
 
 const preferenceByChild = () =>
   all(`
-    SELECT c.id, c.display_name, c.school_level,
+    SELECT c.id, c.display_name, c.school_level, c.gender,
       (SELECT COUNT(*) FROM attempts a WHERE a.child_id = c.id) AS games,
       (SELECT COUNT(*) FROM exam_attempts ea WHERE ea.child_id = c.id) AS exams
     FROM children c

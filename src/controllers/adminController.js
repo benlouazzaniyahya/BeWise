@@ -46,12 +46,17 @@ function computeChildMetrics(rows) {
   };
 }
 
+function speedScore(metrics, avg) {
+  if (!metrics || metrics.totalAttempted === 0) return null;
+  const ratioAtt = avg.avgAttemptsToPass && metrics.avgAttemptsToPass ? avg.avgAttemptsToPass / metrics.avgAttemptsToPass : 1;
+  const ratioTime = avg.avgSeconds && metrics.avgSeconds ? avg.avgSeconds / metrics.avgSeconds : 1;
+  const ratioFirst = avg.firstTryRate ? metrics.firstTryRate / avg.firstTryRate : 1;
+  return ratioAtt * 0.4 + ratioTime * 0.3 + ratioFirst * 0.3;
+}
+
 function speedLabel(child, avg) {
   if (!child || child.totalAttempted === 0) return 'none';
-  const ratioAtt = avg.avgAttemptsToPass && child.avgAttemptsToPass ? avg.avgAttemptsToPass / child.avgAttemptsToPass : 1;
-  const ratioTime = avg.avgSeconds && child.avgSeconds ? avg.avgSeconds / child.avgSeconds : 1;
-  const ratioFirst = avg.firstTryRate ? child.firstTryRate / avg.firstTryRate : 1;
-  const score = ratioAtt * 0.4 + ratioTime * 0.3 + ratioFirst * 0.3;
+  const score = speedScore(child, avg);
   if (score >= 1.1) return 'faster';
   if (score <= 0.9) return 'slower';
   return 'about';
@@ -117,6 +122,7 @@ function dashboard(req, res) {
     return {
       child: c,
       metrics: m,
+      score: speedScore(m, avg),
       label: speedLabel(m, avg),
       avgAttemptsToPass: m.avgAttemptsToPass === null ? null : Math.round(m.avgAttemptsToPass * 10) / 10,
       firstTryPct: Math.round(m.firstTryRate * 100),
@@ -124,11 +130,54 @@ function dashboard(req, res) {
     };
   });
 
+  // Girls vs boys: average learning-speed score + faster/about/slower shares.
+  const genders = [...new Set(children.map((c) => c.gender).filter(Boolean))];
+  const speedByGender = genders.map((g) => {
+    const rows = speed.filter((s) => s.child.gender === g);
+    const withScore = rows.filter((s) => s.score !== null);
+    return {
+      gender: g,
+      children: rows.length,
+      active: withScore.length,
+      faster: rows.filter((r) => r.label === 'faster').length,
+      about: rows.filter((r) => r.label === 'about').length,
+      slower: rows.filter((r) => r.label === 'slower').length,
+      none: rows.filter((r) => r.label === 'none').length,
+      avgScore: withScore.length ? withScore.reduce((s, r) => s + r.score, 0) / withScore.length : null,
+      fasterShare: rows.length ? rows.filter((r) => r.label === 'faster').length / rows.length : 0,
+    };
+  });
+
+  // Preferred pass method per gender: games vs written exam.
+  const prefByGender = genders.map((g) => {
+    const rows = prefByChild.filter((r) => r.gender === g);
+    return {
+      gender: g,
+      games: rows.reduce((s, r) => s + (r.games || 0), 0),
+      exams: rows.reduce((s, r) => s + (r.exams || 0), 0),
+    };
+  });
+
+  // Passed-attempt method per course (game vs exam), from the same union rows.
+  const passByLesson = [];
+  {
+    const byLesson = {};
+    for (const r of allRows) {
+      const pct = r.max_score > 0 ? (r.score / r.max_score) * 100 : 0;
+      if (pct < r.target_score) continue;
+      if (!byLesson[r.lesson_id]) byLesson[r.lesson_id] = { lesson_id: r.lesson_id, lesson_title: r.lesson_title || '—', games: 0, exams: 0 };
+      byLesson[r.lesson_id][r.method === 'exam' ? 'exams' : 'games'] += 1;
+    }
+    for (const id of Object.keys(byLesson)) passByLesson.push(byLesson[id]);
+    passByLesson.sort((a, b) => (b.games + b.exams) - (a.games + a.exams));
+  }
+
   res.render('admin/index', {
     page: 'admin', titleKey: 'admin.title', users, children, stats: stats || {}, t,
     pref, prefTotal, prefByChild,
     activeChildren: activeIds.size,
     speed, avg: { ...avg, avgTimeLabel: fmtSeconds(avg.avgSeconds), avgAttemptsToPass: avg.avgAttemptsToPass === null ? null : Math.round(avg.avgAttemptsToPass * 10) / 10, firstTryPct: Math.round(avg.firstTryRate * 100) },
+    speedByGender, prefByGender, passByLesson,
   });
 }
 
