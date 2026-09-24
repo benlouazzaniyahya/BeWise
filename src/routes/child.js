@@ -12,5 +12,7 @@ router.get('/lessons/:id', c.lessonShow);
 router.post('/lessons/:id/complete', c.complete);
 router.get('/lessons/:id/static', c.staticPage);
 router.post('/lessons/:id/booster', c.booster);
+router.get('/lessons/:id/exam', c.examPage);
+router.post('/lessons/:id/exam', c.examSubmit);
 
 module.exports = router;

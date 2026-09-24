@@ -12,6 +12,9 @@
     <% if (eligible) { %>
       <div class="row-buttons">
         <a class="btn btn-ghost btn-sm" href="/child/lessons/<%= lesson.id %>/static"><%= t('child.read') %> · <%= t('child.staticTitle') %></a>
+        <% if (exam) { %>
+          <a class="btn btn-ghost btn-sm" href="/child/lessons/<%= lesson.id %>/exam"><%= t('child.takeExam') %></a>
+        <% } %>
       </div>
     <% } %>
   </div>

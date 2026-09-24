@@ -98,6 +98,33 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_attempts_child_lesson ON attempts(child_id, lesson_id);
 
+  CREATE TABLE IF NOT EXISTS exams (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    lesson_id      INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    status         TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','approved')),
+    questions_json TEXT NOT NULL,
+    notes          TEXT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    approved_at    TEXT,
+    approved_by    INTEGER REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS exam_attempts (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    child_id       INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    exam_id        INTEGER NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+    lesson_id      INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    attempt_number INTEGER NOT NULL,
+    score          REAL NOT NULL,
+    max_score      REAL NOT NULL,
+    correct_count  INTEGER NOT NULL DEFAULT 0,
+    answers_json   TEXT NOT NULL,
+    started_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_exam_attempts_child_lesson ON exam_attempts(child_id, lesson_id);
+
   CREATE TABLE IF NOT EXISTS badges (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     child_id   INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,

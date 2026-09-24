@@ -1,6 +1,6 @@
 'use strict';
 
-const { Subject, Lesson, Game, Job } = require('../models');
+const { Subject, Lesson, Game, Exam, Job } = require('../models');
 const { tFor, subjectLabel, gradeInfo, MAX_LEVEL, TEMPLATES } = require('../i18n');
 const ai = require('../services/ai');
 const generator = require('../services/generator');
@@ -87,12 +87,17 @@ function lessonShow(req, res) {
   if (!lesson) return notFound(res);
   const subject = Subject.findById(lesson.subject_id);
   const games = Game.listByLesson(lesson.id);
+  const exams = Exam.listByLesson(lesson.id).map((e) => {
+    let n = 0;
+    try { n = JSON.parse(e.questions_json).length; } catch { n = 0; }
+    return { ...e, questionCount: n };
+  });
   const jobs = Job.listByLesson(lesson.id);
   const busy = jobs.some((j) => j.status === 'pending' || j.status === 'running');
   const suggested = suggestLevelForSubject(subject.id, lesson.level);
 
   res.render('teacher/lesson-detail', {
-    page: 'teacher', titleKey: 'teacher.lessonDetail', lesson, subject, games, jobs, busy,
+    page: 'teacher', titleKey: 'teacher.lessonDetail', lesson, subject, games, exams, jobs, busy,
     subject_label: subjectLabel(res.locals.lang, subject.name),
     suggested, t, GENDERS, VARIANTS, confirmDrop: confirmDrop(t),
   });
@@ -411,8 +416,144 @@ function gameRegenerate(req, res) {
   res.redirect(`/teacher/lessons/${game.lesson_id}`);
 }
 
+// ---------------------------------------------------------------------------
+// WRITTEN EXAM — draft → edit → publish, exactly like games (children can pass
+// a lesson by exam as well, with the same target score / badge / unlock).
+// ---------------------------------------------------------------------------
+const examHttpHelper = {};
+
+examHttpHelper.fromBody = (body) => {
+  const qs = Array.isArray(body.questions) ? body.questions : [];
+  const out = [];
+  qs.forEach((q, i) => {
+    if (!q || typeof q !== 'object') return;
+    const question = String(q.question || '').trim();
+    const options = (Array.isArray(q.options) ? q.options : []).map((o) => String(o || '').trim()).filter(Boolean);
+    const explanation = String(q.explanation || '').trim();
+    if (!question || options.length < 2) return;
+    const correctIndex = Number(q.correctIndex);
+    out.push({
+      id: `q${i + 1}`,
+      question,
+      options: options.slice(0, 5),
+      correctIndex: correctIndex >= 0 && correctIndex < options.length ? correctIndex : 0,
+      ...(explanation ? { explanation } : {}),
+    });
+  });
+  return out;
+};
+
+function examGenerate(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  if (Job.countActiveByLesson(lesson.id) > 0) {
+    req.flash('error', t('teacher.generating'));
+    return res.redirect(`/teacher/lessons/${lesson.id}`);
+  }
+  const subject = Subject.findById(lesson.subject_id);
+  generator.dispatch(lesson.id, [{
+    exam: true,
+    lang: Subject.defaultLanguage(subject.name),
+    extraInstructions: String(req.body.extraInstructions || '').trim().slice(0, 1200),
+  }]);
+  req.flash('success', t('exam.generated'));
+  res.redirect(`/teacher/lessons/${lesson.id}`);
+}
+
+function examNew(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  const subject = Subject.findById(lesson.subject_id);
+  res.render('teacher/exam-editor', {
+    page: 'teacher', titleKey: 'exam.newTitle', lesson, subject, exam: null,
+    subject_label: subjectLabel(res.locals.lang, subject.name), t,
+  });
+}
+
+function examCreate(req, res) {
+  const t = tFor(res.locals.lang);
+  const lesson = Lesson.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!lesson) return notFound(res);
+  const questions = examHttpHelper.fromBody(req.body);
+  if (questions.length < 2) {
+    req.flash('error', t('exam.tooFewQuestions'));
+    return res.redirect(`/teacher/lessons/${lesson.id}`);
+  }
+  const id = Exam.create({
+    lessonId: lesson.id,
+    questionsJson: JSON.stringify(questions),
+    notes: 'written by the teacher',
+  });
+  req.flash('success', t('exam.saved'));
+  res.redirect(`/teacher/exams/${id}/edit`);
+}
+
+function examEdit(req, res) {
+  const t = tFor(res.locals.lang);
+  const exam = Exam.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!exam) return notFound(res);
+  let questions = [];
+  try { questions = JSON.parse(exam.questions_json); } catch { questions = []; }
+  const lesson = Lesson.findById(exam.lesson_id);
+  const subject = lesson ? Subject.findById(lesson.subject_id) : null;
+  res.render('teacher/exam-editor', {
+    page: 'teacher', titleKey: 'exam.editTitle', lesson: { id: exam.lesson_id, title: exam.lesson_title }, subject, exam, questions,
+    subject_label: subject ? subjectLabel(res.locals.lang, subject.name) : '', t,
+  });
+}
+
+function examUpdate(req, res) {
+  const t = tFor(res.locals.lang);
+  const exam = Exam.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!exam) return notFound(res);
+  const questions = examHttpHelper.fromBody(req.body);
+  if (questions.length < 2) {
+    req.flash('error', t('exam.tooFewQuestions'));
+    return res.redirect(`/teacher/exams/${exam.id}/edit`);
+  }
+  Exam.updateQuestions(exam.id, JSON.stringify(questions), String(req.body.notes || '').trim().slice(0, 300) || 'edited by the teacher');
+  req.flash('success', t('exam.saved'));
+  res.redirect(`/teacher/exams/${exam.id}/edit`);
+}
+
+function examApprove(req, res) {
+  const t = tFor(res.locals.lang);
+  const exam = Exam.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!exam) return notFound(res);
+  let questions = [];
+  try { questions = JSON.parse(exam.questions_json); } catch { questions = []; }
+  if (questions.length < 2) {
+    req.flash('error', t('exam.tooFewQuestions'));
+    return res.redirect(`/teacher/exams/${exam.id}/edit`);
+  }
+  Exam.approve(exam.id, res.locals.user.id);
+  req.flash('success', t('exam.published'));
+  res.redirect(`/teacher/lessons/${exam.lesson_id}`);
+}
+
+function examUnpublish(req, res) {
+  const t = tFor(res.locals.lang);
+  const exam = Exam.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!exam) return notFound(res);
+  Exam.setStatus(exam.id, 'draft');
+  req.flash('success', t('exam.unpublished'));
+  res.redirect(`/teacher/lessons/${exam.lesson_id}`);
+}
+
+function examDelete(req, res) {
+  const t = tFor(res.locals.lang);
+  const exam = Exam.findOwnedById(Number(req.params.id), res.locals.user.id);
+  if (!exam) return notFound(res);
+  Exam.deleteById(exam.id);
+  req.flash('success', t('exam.deleted'));
+  res.redirect(`/teacher/lessons/${exam.lesson_id}`);
+}
+
 module.exports = {
   subjectsPage, lessonsList, lessonNew, lessonCreate, lessonShow, lessonEdit, lessonUpdate, lessonDelete,
   lessonGenerate, lessonGenerateTriple, triplePreview, tripleApprove, tripleRegenerate,
   gamePreview, gameApprove, gameReject, gameFix, gameRegenerate,
+  examGenerate, examNew, examCreate, examEdit, examUpdate, examApprove, examUnpublish, examDelete,
 };

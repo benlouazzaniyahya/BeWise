@@ -133,5 +133,49 @@
       </div>
     <% }); %>
   </div>
+<div class="card">
+    <h2><%= t('exam.cardTitle') %></h2>
+    <p class="hint"><%= t('exam.cardSub') %></p>
+    <div class="row-2">
+      <div class="field">
+        <p class="hint"><%= t('exam.generateLabel') %></p>
+      </div>
+    </div>
+    <div class="row-btns">
+      <form class="inline" action="/teacher/lessons/<%= lesson.id %>/exams/generate" method="post">
+        <input name="extraInstructions" type="text" placeholder="<%= t('exam.extraInstructionsPlaceholder') %>" class="input-inline">
+        <button class="btn btn-primary" type="submit" <%= busy ? 'disabled' : '' %>><%= t('exam.generate') %></button>
+        <% if (busy) { %><span class="muted small"><%= t('exam.generating') %></span><% } %>
+      </form>
+      <a class="btn btn-ghost" href="/teacher/lessons/<%= lesson.id %>/exams/new"><%= t('exam.createBlank') %></a>
+    </div>
+
+    <% if (!exams.length) { %>
+      <p class="muted"><%= t('exam.noExams') %></p>
+    <% } %>
+    <% exams.forEach(function(e){ %>
+      <div class="game-row">
+        <div class="game-row-meta">
+          <span class="chip chip-<%= e.status %>"><%= t({draft:'exam.statusDraft',approved:'exam.statusApproved'}[e.status]) %></span>
+          <span class="small muted"><%= e.questionCount %> <%= t('exam.questionsCount') %> <% if (e.notes) { %>(<%= e.notes %>)<% } %></span>
+        </div>
+        <div class="game-row-actions">
+          <a class="btn btn-ghost btn-sm" href="/teacher/exams/<%= e.id %>/edit"><%= t('common.edit') %></a>
+          <% if (e.status === 'approved') { %>
+            <form action="/teacher/exams/<%= e.id %>/unpublish" method="post">
+              <button class="btn btn-ghost btn-sm" type="submit"><%= t('exam.unpublish') %></button>
+            </form>
+          <% } else { %>
+            <form action="/teacher/exams/<%= e.id %>/approve" method="post">
+              <button class="btn btn-success btn-sm" type="submit"><%= t('exam.publish') %></button>
+            </form>
+          <% } %>
+          <form action="/teacher/exams/<%= e.id %>/delete" method="post" onsubmit="return confirm('<%= t('exam.deleteConfirm') %>');">
+            <button class="btn btn-danger btn-sm" type="submit"><%= t('common.delete') %></button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  </div>
 </main>
 <%- include('../partials/foot') %>

@@ -8,7 +8,7 @@
 // (server restart) are swept back to `pending` on boot.
 
 const ai = require('./ai');
-const { Lesson, Subject, Game, Job } = require('../models');
+const { Lesson, Subject, Game, Exam, Job } = require('../models');
 const { PROFILES, TEMPLATES } = require('../i18n');
 
 const GENDERS = ['male', 'female'];
@@ -53,6 +53,24 @@ async function processJob(job) {
         }));
       }
       Job.setDone(job.id, ids.join(','));
+      return;
+    }
+
+    if (payload.exam) {
+      const result = await ai.generateExam({
+        lesson,
+        subjectName: subject.name,
+        lang: payload.lang || 'en',
+        extraInstructions: payload.extraInstructions,
+      });
+      // A new generation becomes a fresh draft; the teacher edits before
+      // publishing. Previous drafts stay untouched so nothing is lost.
+      const examId = Exam.create({
+        lessonId: lesson.id,
+        questionsJson: JSON.stringify(result.questions),
+        notes: (result.note || '') + (payload.extraInstructions ? ' [teacher instructions]' : ''),
+      });
+      Job.setDone(job.id, String(examId));
       return;
     }
 

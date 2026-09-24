@@ -1,0 +1,48 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <p class="muted small"><a href="/child/lessons/<%= lesson.id %>"><%= t('child.backToLesson') %></a> · <%= subject_label %></p>
+  <h1><%= t('child.examTitle') %> — <%= lesson.title %></h1>
+
+  <% if (result) { %>
+    <% var gradePct = Math.round(result.grade.score / result.grade.maxScore * 100); %>
+    <div class="card result-card <%= gradePct >= lesson.target_score ? 'result-pass' : 'result-fail' %>">
+      <h2><%= gradePct >= lesson.target_score ? t('exam.resultsPassed') : t('child.resultsNotPassed', { need: lesson.target_score }) %></h2>
+      <p class="big-score"><%= result.grade.score %>/<%= result.grade.maxScore %> <%= t('common.points') %> · <%= gradePct %>%</p>
+      <% if (gradePct >= lesson.target_score) { %>
+        <p class="ok"><%= t('child.resultsPassed') %></p>
+        <span class="badge-icon">★</span>
+      <% } %>
+      <p class="hint small"><%= t('exam.resultHint') %></p>
+    </div>
+  <% } else { %>
+    <p class="hint"><%= t('exam.takeHint', { target: lesson.target_score }) %></p>
+  <% } %>
+
+  <form method="post" action="/child/lessons/<%= lesson.id %>/exam">
+    <% questions.forEach(function(q, qi){ %>
+      <% var detail = details && details[qi]; %>
+      <div class="card exam-q">
+        <strong><%= t('exam.questionShort') %> <%= qi + 1 %>/<%= questions.length %> — <%= q.question %></strong>
+        <% q.options.forEach(function(opt, oi){ %>
+          <% var isCorrect = oi === q.correctIndex; %>
+          <label class="exam-option <%= detail && isCorrect ? 'exam-correct' : '' %>">
+            <input type="radio" name="answers[<%= qi %>][selectedIndex]" value="<%= oi %>">
+            <%= opt %>
+          </label>
+        <% }); %>
+        <% if (q.explanation && detail) { %>
+          <p class="hint small"><%= t('exam.explanation') %>: <%= q.explanation %></p>
+        <% } %>
+      </div>
+    <% }); %>
+
+    <% if (!result) { %>
+      <button class="btn btn-primary" type="submit"><%= t('exam.submit') %></button>
+    <% } else { %>
+      <a class="btn btn-primary" href="/child/lessons/<%= lesson.id %>"><%= t('child.backToLesson') %></a>
+      <a class="btn btn-ghost" href="/child/lessons/<%= lesson.id %>/exam"><%= t('exam.tryAgain') %></a>
+    <% } %>
+  </form>
+</main>
+<%- include('../partials/foot') %>

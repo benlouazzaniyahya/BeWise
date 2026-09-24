@@ -467,3 +467,31 @@ button[disabled], .btn[disabled] { opacity: .5; pointer-events: none; }
 .plane-takeoff { color: #bfdbfe; margin-top: 6px; }
 .result-card h2 { margin-bottom: 4px; }
 .result-card .btn { margin-top: 18px; }
+
+/* Written exam (teacher editor + child form) */
+.exam-q { background: rgba(255, 255, 255, 0.06); }
+.exam-q .field { margin-bottom: 8px; }
+.exam-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.exam-options .field { margin-bottom: 0; }
+.exam-option { display: block; padding: 8px 10px; margin: 6px 0; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: var(--radius); cursor: pointer; }
+.exam-option.exam-correct { border-color: #4ade80; background: rgba(74, 222, 128, 0.15); }
+.exam-option input { margin-right: 6px; }
+.exam-actions { margin-top: 14px; }
+.input-inline { padding: 8px 10px; border-radius: var(--radius); border: 1px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.08); color: #fff; min-width: 240px; }
+.btn.exam-remove { margin-top: 6px; }
+
+/* Admin stats */
+.row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat-mini .stat { padding: 8px 10px; }
+.stat-mini .stat strong { font-size: 1rem; }
+.bar { display: flex; height: 14px; border-radius: 999px; overflow: hidden; margin: 10px 0 16px; background: rgba(255, 255, 255, 0.1); }
+.bar-fill { height: 100%; }
+.bar-games { background: #3b82f6; }
+.bar-exams { background: #f59e0b; }
+.chip-games { background: rgba(59, 130, 246, 0.25); color: #bfdbfe; }
+.chip-exam { background: rgba(245, 158, 11, 0.25); color: #fde68a; }
+.chip-balanced { background: rgba(168, 85, 247, 0.25); color: #ddd6fe; }
+.chip-faster { background: rgba(74, 222, 128, 0.25); color: #bbf7d0; }
+.chip-about { background: rgba(148, 163, 184, 0.25); color: #e2e8f0; }
+.chip-slower { background: rgba(244, 63, 94, 0.25); color: #fecdd3; }
+.chip-none { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }

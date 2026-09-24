@@ -1,0 +1,90 @@
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+<main class="wrap page">
+  <p class="muted small"><a href="/teacher/lessons/<%= lesson.id %>"><%= t('teacher.viewLessons') %></a> · <%= subject_label %></p>
+  <h1><%= t('exam.editOrNew') %> — <%= lesson.title %></h1>
+  <p class="hint"><%= t('exam.questionsHint') %></p>
+
+  <% var samples = questions && questions.length ? questions : [{question:'',options:['','','',''],correctIndex:0},{question:'',options:['','','',''],correctIndex:0}]; %>
+  <form action="<%= exam ? '/teacher/exams/' + exam.id : '/teacher/lessons/' + lesson.id + '/exams' %>" method="post">
+    <div id="exam-questions">
+      <% samples.forEach(function(q, qi){ %>
+        <div class="card exam-q" data-index="<%= qi %>">
+          <div class="field">
+            <label><%= t('exam.questionLabel') %> <%= qi + 1 %> <%= t('exam.correct') %>:
+              <select name="questions[<%= qi %>][correctIndex]" class="correct-select">
+                <% for (var oi = 0; oi < 4; oi++) { %>
+                  <option value="<%= oi %>" <%= q.correctIndex === oi ? 'selected' : '' %>><%= t('exam.optionShort') %> <%= oi + 1 %></option>
+                <% } %>
+              </select>
+            </label>
+            <input name="questions[<%= qi %>][question]" value="<%= q.question || '' %>" required placeholder="<%= t('exam.questionPlaceholder') %>">
+          </div>
+          <div class="exam-options">
+            <% for (var oi = 0; oi < 4; oi++) { %>
+              <div class="field">
+                <label><%= t('exam.optionLabel') %> <%= oi + 1 %></label>
+                <input name="questions[<%= qi %>][options][<%= oi %>]" value="<%= (q.options && q.options[oi]) ? q.options[oi] : '' %>" required>
+              </div>
+            <% } %>
+          </div>
+          <div class="field">
+            <label><%= t('exam.explanation') %> <span class="small muted"><%= t('exam.explanationHint') %></span></label>
+            <input name="questions[<%= qi %>][explanation]" value="<%= q.explanation || '' %>" placeholder="<%= t('exam.explanationPlaceholder') %>">
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm exam-remove"><%= t('exam.removeQuestion') %></button>
+        </div>
+      <% }); %>
+    </div>
+
+    <div class="row-btns exam-actions">
+      <button type="button" class="btn btn-ghost" id="exam-add"><%= t('exam.addQuestion') %></button>
+      <button class="btn btn-primary" type="submit"><%= t('common.save') %></button>
+    </div>
+  </form>
+
+  <% if (exam) { %>
+    <form class="row-btns exam-actions" action="/teacher/exams/<%= exam.id %>/approve" method="post">
+      <button class="btn btn-success" type="submit"><%= t('exam.publish') %></button>
+    </form>
+  <% } %>
+</main>
+
+<script>
+  (function () {
+    var add = document.getElementById('exam-add');
+    var list = document.getElementById('exam-questions');
+    function pad(n) { return n; }
+    add.addEventListener('click', function () {
+      var idx = list.querySelectorAll('.exam-q').length;
+      var div = document.createElement('div');
+      div.className = 'card exam-q';
+      div.setAttribute('data-index', idx);
+      div.innerHTML =
+        '<div class="field"><label>' + '<%= t('exam.questionLabel') %> ' + (idx + 1) + ' <%= t('exam.correct') %>:' +
+        ' <select name="questions[' + idx + '][correctIndex]" class="correct-select">' +
+        '   <option value="0"><%= t('exam.optionShort') %> 1</option>' +
+        '   <option value="1"><%= t('exam.optionShort') %> 2</option>' +
+        '   <option value="2"><%= t('exam.optionShort') %> 3</option>' +
+        '   <option value="3"><%= t('exam.optionShort') %> 4</option>' +
+        ' </select></label>' +
+        ' <input name="questions[' + idx + '][question]" required placeholder="<%= t('exam.questionPlaceholder') %>"></div>' +
+        '<div class="exam-options">' +
+        '   <div class="field"><label><%= t('exam.optionLabel') %> 1</label><input name="questions[' + idx + '][options][0]" required></div>' +
+        '   <div class="field"><label><%= t('exam.optionLabel') %> 2</label><input name="questions[' + idx + '][options][1]" required></div>' +
+        '   <div class="field"><label><%= t('exam.optionLabel') %> 3</label><input name="questions[' + idx + '][options][2]" required></div>' +
+        '   <div class="field"><label><%= t('exam.optionLabel') %> 4</label><input name="questions[' + idx + '][options][3]" required></div>' +
+        '</div>' +
+        '<div class="field"><label><%= t('exam.explanation') %></label><input name="questions[' + idx + '][explanation]"></div>' +
+        '<button type="button" class="btn btn-ghost btn-sm exam-remove"><%= t('exam.removeQuestion') %></button>';
+      div.querySelector('.exam-remove').addEventListener('click', function () { div.remove(); });
+      list.appendChild(div);
+    });
+    list.addEventListener('click', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('exam-remove')) {
+        e.target.closest('.exam-q') && e.target.closest('.exam-q').remove();
+      }
+    });
+  })();
+</script>
+<%- include('../partials/foot') %>

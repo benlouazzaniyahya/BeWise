@@ -29,4 +29,13 @@ router.post('/games/:id/reject', c.gameReject);
 router.post('/games/:id/fix', c.gameFix);
 router.post('/games/:id/regenerate', c.gameRegenerate);
 
+router.post('/lessons/:id/exams/generate', c.examGenerate);
+router.get('/lessons/:id/exams/new', c.examNew);
+router.post('/lessons/:id/exams', c.examCreate);
+router.get('/exams/:id/edit', c.examEdit);
+router.post('/exams/:id', c.examUpdate);
+router.post('/exams/:id/approve', c.examApprove);
+router.post('/exams/:id/unpublish', c.examUnpublish);
+router.post('/exams/:id/delete', c.examDelete);
+
 module.exports = router;

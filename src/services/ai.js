@@ -1389,6 +1389,212 @@ function convertLegacyGame(json) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// WRITTEN EXAM generation (a classic paper-style MCQ quiz).
+// One exam per lesson, written entirely in the lesson language, grounded in
+// the lesson's OWN text. Strict JSON contract, same safety + grounding rules
+// as the games, exported for the teacher's draft → edit → publish flow.
+// ---------------------------------------------------------------------------
+const EXAM_MAX_QUESTIONS = 6;
+
+function examLangMismatch(questions, lang) {
+  const texts = [];
+  const push = (v) => { if (typeof v === 'string' && v.trim()) texts.push(v.trim()); };
+  questions.forEach((q) => {
+    if (!q || typeof q !== 'object') return;
+    push(q.question);
+    (q.options || []).forEach(push);
+    push(q.explanation);
+  });
+  if (!texts.length) return '';
+  const joined = texts.join('\n');
+  const arabic = (joined.match(/[\u0621-\u064A\u066E-\u06D3\u06D5\u0750-\u077F]/g) || []).length;
+  const letters = (joined.match(/\p{L}/gu) || []).length || 1;
+  const ratio = arabic / letters;
+  if (lang === 'ar' && ratio < 0.5) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN ARABIC — the lesson language is Arabic.';
+  if (lang !== 'ar' && ratio > 0.2) return 'WRITE THE EXAM QUESTIONS AND OPTIONS IN THE LESSON LANGUAGE — not Arabic.';
+  return '';
+}
+
+function validateExamJson(raw, targetLang) {
+  const errors = [];
+  let obj;
+  try {
+    obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { ok: false, questions: null, errors: ['response is not valid JSON'] };
+  }
+  if (!obj || Array.isArray(obj) || typeof obj !== 'object') {
+    return { ok: false, questions: null, errors: ['response is not a JSON object'] };
+  }
+
+  const safety = safetyCheck(obj);
+  if (safety) errors.push(`age-appropriateness/safety: ${safety}`);
+
+  const rawList = Array.isArray(obj.questions) ? obj.questions : [];
+  if (!rawList.length) errors.push('"questions" must be a non-empty array');
+  if (rawList.length > EXAM_MAX_QUESTIONS) errors.push(`too many questions (max ${EXAM_MAX_QUESTIONS})`);
+
+  const questions = [];
+  rawList.slice(0, EXAM_MAX_QUESTIONS).forEach((q, i) => {
+    if (!q || typeof q !== 'object') { errors.push(`questions[${i}] is not an object`); return; }
+    const question = str(q.question, '');
+    const options = (Array.isArray(q.options) ? q.options : []).map((o) => str(o, '')).filter(Boolean);
+    const correctIndex = Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex < options.length ? q.correctIndex : -1;
+    const explanation = str(q.explanation, '');
+    if (!question) errors.push(`questions[${i}]: "question" is required`);
+    if (options.length < 3) errors.push(`questions[${i}]: at least 3 options required`);
+    if (options.length > 5) errors.push(`questions[${i}]: too many options (max 5)`);
+    if (correctIndex === -1) errors.push(`questions[${i}]: "correctIndex" must point to one of the options`);
+    if (!question || correctIndex === -1) return;
+    questions.push({
+      id: str(q.id, `q${i + 1}`),
+      question,
+      options: options.slice(0, 5),
+      correctIndex,
+      ...(explanation ? { explanation } : {}),
+    });
+  });
+
+  if (questions.length < 3) errors.push('a written exam needs at least 3 questions');
+
+  if (!errors.length && (targetLang || 'en')) {
+    const mismatch = examLangMismatch(questions, String(targetLang).toLowerCase());
+    if (mismatch) errors.push(mismatch);
+  }
+
+  if (!errors.length) return { ok: true, questions, errors };
+  return { ok: false, questions: null, errors };
+}
+
+function buildExamPrompt({ lesson, subjectName, lang, extraInstructions }) {
+  const [ageMin, ageMax] = gradeBand(lesson.school_level || 'cp');
+  const langName = { en: 'English', fr: 'French', ar: 'Arabic' }[lang] || 'English';
+  const rules = [];
+  if (extraInstructions) rules.push(extraInstructions);
+  return [
+    'You are a school teacher writing a WRITTEN EXAM (a classic paper-style multiple-choice quiz) for a lesson.',
+    '',
+    'STRICT RULES:',
+    '- Base EVERY question and EVERY option ONLY on the exact facts, words and vocabulary of the COURSE TEXT below.',
+    `- Write the whole exam in ${langName} (the language of the lesson).`,
+    '- 4 to 6 questions. Each question has exactly 4 options and exactly one correct option.',
+    '- one question per fact/concept; do not repeat the same idea twice.',
+    '- Use simple, short, age-appropriate sentences for children aged ' + ageMin + ' to ' + ageMax + '.',
+    '- For each question, add a one-line "explanation" in the same language telling the child why the correct option is right.',
+    '- No violence, no religion, no politics. Never mention a real name of a child or a teacher.',
+    ...(rules.length ? ['', 'TEACHER EXTRA INSTRUCTIONS: ' + rules.join(' ')] : []),
+    '',
+    'Answer with EXACTLY one JSON object like this and nothing else (no markdown fences):',
+    '{ "questions": [ { "question": "...", "options": ["A","B","C","D"], "correctIndex": 0, "explanation": "..." } ] }',
+    '',
+    'COURSE TEXT:',
+    lesson.raw_lesson_text || lesson.title,
+  ].join('\n');
+}
+
+async function generateExamWithRetries(context) {
+  const queue = getModelQueue();
+  const MAX_CALLS = Math.min(queue.length * MAX_ATTEMPTS, 8);
+  let modelIndex = 0;
+  let prompt = buildExamPrompt(context);
+  let lastErrors = [];
+  let attemptsUsed = 0;
+
+  while (modelIndex < queue.length && attemptsUsed < MAX_CALLS) {
+    let text;
+    try {
+      text = await callModel(prompt, { responseFormat: true, maxTokens: 1600, model: queue[modelIndex] });
+    } catch (err) {
+      attemptsUsed++;
+      lastErrors.push(`api error: ${err.message || 'unknown'}`);
+      const msg = err.message || 'unknown';
+      if (/401|403|unauthoriz|invalid api key|missing api key|api key required/i.test(msg)) break;
+      if (modelIndex < queue.length - 1) { modelIndex++; continue; }
+      if (attemptsUsed >= MAX_CALLS) break;
+      await sleep(1200);
+      modelIndex = 0;
+      continue;
+    }
+    attemptsUsed++;
+    const parsed = extractJson(text);
+    let validation = validateExamJson(parsed, context.lang);
+    if (validation.ok) {
+      const grounding = courseGroundingError(parsed, context.lesson);
+      if (grounding) validation = { ok: false, questions: null, errors: [grounding] };
+    }
+    if (validation.ok) return { validation, attempts: attemptsUsed, model: queue[modelIndex] };
+    lastErrors = validation.errors;
+    prompt = buildExamPrompt(context)
+      + `\n\nYour previous response was REJECTED by validation. The issues were:\n- ${lastErrors.join('\n- ')}\n`
+      + 'Please return a corrected JSON object only.';
+  }
+  const err = new Error(`Exam generation failed after ${Math.max(1, attemptsUsed)} attempt(s): ${lastErrors.join('; ')}`);
+  err.code = 'GENERATION_FAILED';
+  throw err;
+}
+
+// Deterministic offline exam so the whole flow works without an OpenRouter key.
+function generateExamOffline({ lesson, subjectName, lang, extraInstructions }) {
+  const count = 5;
+  const questions = [];
+  if (subjectName === 'math') {
+    const rnd = (seed) => { const x = Math.sin(seed * 9973) * 10000; return Math.floor((x - Math.floor(x)) * 9) + 1; };
+    for (let i = 0; i < count; i++) {
+      const a = rnd((lesson.id || 1) * 7 + i * 3 + 1);
+      const b = rnd((lesson.id || 1) * 13 + i * 5 + 2);
+      const isPlus = i % 2 === 0;
+      const x = Math.max(a, b);
+      const y = Math.min(a, b);
+      const result = isPlus ? a + b : x - y;
+      const options = [...new Set([result - 1, result + 1, result + 2, result].map((n) => String(Math.max(0, n))))];
+      while (options.length < 3) options.push(String(result));
+      const shuffled = shuffleArr(options);
+      questions.push({
+        id: `q${i + 1}`,
+        question: isPlus ? `${a} + ${b} = ?` : `${x} - ${y} = ?`,
+        options: shuffled,
+        correctIndex: shuffled.indexOf(String(result)),
+        explanation: 'This is the correct result of the operation.',
+      });
+    }
+  } else {
+    const sents = sentences(lesson.raw_lesson_text);
+    const source = sents.length ? sents : [`${lesson.title} is a great lesson to learn. Practice makes progress!`];
+    const seen = new Set();
+    source.slice(0, count).forEach((sent, idx) => {
+      const words = sent.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length >= 3);
+      if (!words.length) return;
+      const correct = words[Math.min(1, words.length - 1)];
+      if (seen.has(correct.toLowerCase())) return;
+      seen.add(correct.toLowerCase());
+      const pool = source.map((s) => s.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((w) => w.length >= 3)).flat();
+      const distractors = [...new Set(pool.filter((w) => w.toLowerCase() !== correct.toLowerCase()))];
+      const options = [...new Set([correct, ...distractors.slice(0, 3)])].slice(0, 4);
+      while (options.length < 4) options.push(options[options.length - 1] + '?');
+      const shuffled = shuffleArr(options);
+      questions.push({
+        id: `q${idx + 1}`,
+        question: `Which word belongs to the lesson « ${lesson.title} »?`,
+        options: shuffled,
+        correctIndex: shuffled.indexOf(correct),
+        explanation: `The word « ${correct} » is used in this lesson.`,
+      });
+    });
+    while (questions.length < 3) questions.push(questions[0] || null);
+  }
+  return { questions: questions.filter(Boolean).slice(0, EXAM_MAX_QUESTIONS), note: 'offline demo generator' };
+}
+
+async function generateExam({ lesson, subjectName, lang = 'en', extraInstructions }) {
+  const context = { lesson, subjectName, lang, extraInstructions };
+  if (!getClientModel()) {
+    return { ...generateExamOffline(context), source: 'offline' };
+  }
+  const { validation, attempts, model } = await generateExamWithRetries(context);
+  return { questions: validation.questions, source: 'ai', note: `OpenRouter exam · ${model || getClientModel()} · ${attempts} attempt(s)` };
+}
+
 module.exports = {
   TEMPLATES,
   validateGameJson,
@@ -1409,5 +1615,8 @@ module.exports = {
   regenerateTripleFromFeedback,
   extractTripleGames,
   convertLegacyGame,
+  validateExamJson,
+  generateExam,
+  generateExamOffline,
   hasAi: () => Boolean(process.env.OPENROUTER_API_KEY),
 };

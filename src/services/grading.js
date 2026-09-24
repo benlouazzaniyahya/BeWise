@@ -1,6 +1,6 @@
 'use strict';
 
-const { Child, Lesson, Game, Attempt, Progress, Badge } = require('../models');
+const { Child, Lesson, Game, Attempt, ExamAttempt, Progress, Badge } = require('../models');
 
 // ---------------------------------------------------------------------------
 // Game scoring. The server ALWAYS recomputes the score from the stored
@@ -125,6 +125,42 @@ function gradeGame(game, submitted) {
 }
 
 // ---------------------------------------------------------------------------
+// Written-exam grading. The exam stores MCQs with options + correctIndex, so
+// the shared gradeGame entries path grades them server-side, never trusting
+// the client's chosen index.
+// ---------------------------------------------------------------------------
+function gradeExam(exam, submitted) {
+  const entries = (exam.questions || []).map((q, i) => ({
+    options: Array.isArray(q.options) ? q.options : [],
+    correctIndex: Number.isInteger(q.correctIndex) ? q.correctIndex : -1,
+    points: Number.isInteger(q.points) && q.points > 0 ? q.points : 10,
+    id: q.id || `q${i + 1}`,
+  }));
+  return gradeGame({ entries }, submitted);
+}
+
+// Shared after-attempt bookkeeping: progress row + badge + unlock next lesson.
+// Returns { badgeAwarded, bestScore }.
+function applyProgress({ childId, lesson, grade, passed }) {
+  const existing = Progress.findForLesson(childId, lesson.id);
+  const bestScore = Math.max(existing ? existing.best_score : 0, grade.pct);
+  const status = passed ? 'passed' : 'in_progress';
+  Progress.upsertForLesson(childId, lesson.id, { bestScore, status });
+
+  let badgeAwarded = null;
+  if (passed) {
+    const existingBadge = Badge.findForChildLesson(childId, lesson.id);
+    if (!existingBadge) {
+      Badge.create(childId, lesson.id, 'lesson_passed');
+      badgeAwarded = 'lesson_passed';
+    } else {
+      badgeAwarded = existingBadge.badge_type;
+    }
+  }
+  return { badgeAwarded, bestScore };
+}
+
+// ---------------------------------------------------------------------------
 // Persist an attempt + update progress + (maybe) badge + unlock next lesson.
 // ---------------------------------------------------------------------------
 function recordAttempt({ childId, game, lesson, submitted }) {
@@ -149,22 +185,45 @@ function recordAttempt({ childId, game, lesson, submitted }) {
       completedAt: new Date().toISOString(),
     });
 
-    const existing = Progress.findForLesson(childId, lesson.id);
-    const bestScore = Math.max(existing ? existing.best_score : 0, grade.pct);
-    const status = passed ? 'passed' : 'in_progress';
-    Progress.upsertForLesson(childId, lesson.id, { bestScore, status });
+    const { badgeAwarded, bestScore } = applyProgress({ childId, lesson, grade, passed });
+    return { attempt_number: attemptNumber, grade, passed, badgeAwarded, bestScore };
+  })();
 
-    let badgeAwarded = null;
-    if (passed) {
-      const existingBadge = Badge.findForChildLesson(childId, lesson.id);
-      if (!existingBadge) {
-        Badge.create(childId, lesson.id, 'lesson_passed');
-        badgeAwarded = 'lesson_passed';
-      } else {
-        badgeAwarded = existingBadge.badge_type;
-      }
-    }
+  if (result.passed) unlockNextLesson(childId, lesson);
+  return result;
+}
 
+// Same rewards as a game attempt, but for a written exam: score → progress →
+// badge → unlock. A child who passes an exam earns the lesson exactly like a
+// child who passes a game.
+function recordExamAttempt({ childId, exam, lesson, submitted }) {
+  const child = Child.findById(childId);
+  if (!child) throw new Error('child not found');
+
+  const questions = Array.isArray(exam.questions)
+    ? exam.questions
+    : (() => { try { return JSON.parse(exam.questions_json || '[]'); } catch { return []; } })();
+
+  const grade = gradeExam({ questions }, submitted);
+  const passed = grade.pct >= lesson.target_score;
+
+  const result = (() => {
+    const attemptNumber = ExamAttempt.countForChildLesson(childId, lesson.id) + 1;
+
+    ExamAttempt.create({
+      childId,
+      examId: exam.id,
+      lessonId: lesson.id,
+      attemptNumber,
+      score: grade.score,
+      maxScore: grade.maxScore,
+      correctCount: grade.correctCount,
+      answersJson: JSON.stringify({ submitted: cleanAnswers(submitted), correct: grade.details }),
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    });
+
+    const { badgeAwarded, bestScore } = applyProgress({ childId, lesson, grade, passed });
     return { attempt_number: attemptNumber, grade, passed, badgeAwarded, bestScore };
   })();
 
@@ -213,4 +272,4 @@ function selectGameForChild(child, lesson, { preferGameId } = {}) {
   return neutral || pool[0];
 }
 
-module.exports = { computeMaxScore, gradeGame, cleanAnswers, recordAttempt, selectGameForChild, unlockNextLesson };
+module.exports = { computeMaxScore, gradeGame, gradeExam, cleanAnswers, recordAttempt, recordExamAttempt, selectGameForChild, unlockNextLesson };

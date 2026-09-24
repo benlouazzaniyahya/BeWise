@@ -1,8 +1,8 @@
 'use strict';
 
-const { Subject, Lesson, Game, Progress, Badge, Attempt } = require('../models');
+const { Subject, Lesson, Game, Progress, Badge, Attempt, Exam, ExamAttempt } = require('../models');
 const { tFor, subjectLabel } = require('../i18n');
-const { recordAttempt, selectGameForChild } = require('../services/grading');
+const { recordAttempt, recordExamAttempt, selectGameForChild } = require('../services/grading');
 const { suggestDifficulty } = require('../services/adaptive');
 const ai = require('../services/ai');
 
@@ -87,6 +87,7 @@ function lessonShow(req, res) {
 
   const game = selectGameForChild(child, lesson, { preferGameId: req.query.game ? Number(req.query.game) : null });
   const teacherApproved = Game.listApprovedByLesson(lesson.id).length > 0;
+  const exam = Exam.findApprovedByLesson(lesson.id);
   const attempts = Attempt.listForChildLesson(child.id, lesson.id);
   const lastAttempt = attempts.length ? attempts[attempts.length - 1] : null;
 
@@ -99,7 +100,7 @@ function lessonShow(req, res) {
   res.render('child/lesson', {
     page: 'child', titleKey: 'child.play', child, subject, lesson,
     subject_label: subjectLabel(child.language, subject.name),
-    status, eligible, game, gameJson, attempts, lastAttempt, showResult, teacherApproved, t,
+    status, eligible, game, gameJson, exam, attempts, lastAttempt, showResult, teacherApproved, t,
   });
 }
 
@@ -221,4 +222,63 @@ async function booster(req, res) {
   }
 }
 
-module.exports = { index, lessonShow, complete, staticPage, booster };
+// ---------------------------------------------------------------------------
+// Written exam — the "old school" way to pass a lesson. Same target score,
+// same badge, same progress + unlock as a game.
+// ---------------------------------------------------------------------------
+function _loadExam(child, lesson, res) {
+  if (!lesson) { notFound(res); return { done: true }; }
+  const entry = findEntry(child, lesson.id);
+  const status = entry ? entry.status : 'locked';
+  if (!statusAllowed(status)) { forbidden(res); return { done: true }; }
+  const exam = Exam.findApprovedByLesson(lesson.id);
+  if (!exam) return { done: false, exam: null };
+  return { done: false, exam };
+}
+
+function examPage(req, res) {
+  const t = tFor(res.locals.lang);
+  const child = res.locals.child;
+  const lesson = Lesson.findById(Number(req.params.id));
+  const loaded = _loadExam(child, lesson, res);
+  if (loaded.done) return;
+  if (!loaded.exam) { req.flash('error', t('exam.needPublished')); return res.redirect(`/child/lessons/${lesson.id}`); }
+
+  let questions = [];
+  try { questions = JSON.parse(loaded.exam.questions_json); } catch { questions = []; }
+  const subject = Subject.findById(lesson.subject_id);
+  res.render('child/exam', {
+    page: 'child', titleKey: 'child.examTitle', child, subject, lesson, exam: loaded.exam, questions,
+    subject_label: subjectLabel(child.language, subject.name), t,
+    result: null, details: null,
+  });
+}
+
+function examSubmit(req, res) {
+  const t = tFor(res.locals.lang);
+  const child = res.locals.child;
+  const lesson = Lesson.findById(Number(req.params.id));
+  const loaded = _loadExam(child, lesson, res);
+  if (loaded.done) return;
+  if (!loaded.exam) { req.flash('error', t('exam.needPublished')); return res.redirect(`/child/lessons/${lesson.id}`); }
+
+  let questions = [];
+  try { questions = JSON.parse(loaded.exam.questions_json); } catch { questions = []; }
+  const answers = req.body && Array.isArray(req.body.answers) ? req.body.answers : (req.body && typeof req.body.answers === 'object' ? Object.values(req.body.answers) : []);
+  const submitted = questions.map((q, i) => {
+    const row = answers[i];
+    const v = row && (Number(row.selectedIndex) >= 0) ? Number(row.selectedIndex) : null;
+    return { itemIndex: i, selectedIndex: (v !== null && v < (Array.isArray(q.options) ? q.options.length : 0)) ? v : null };
+  });
+
+  const result = recordExamAttempt({ childId: child.id, exam: loaded.exam, lesson, submitted });
+
+  const subject = Subject.findById(lesson.subject_id);
+  res.render('child/exam', {
+    page: 'child', titleKey: 'child.examTitle', child, subject, lesson, exam: loaded.exam, questions,
+    subject_label: subjectLabel(child.language, subject.name), t,
+    result, details: result.grade.details,
+  });
+}
+
+module.exports = { index, lessonShow, complete, staticPage, booster, examPage, examSubmit };

@@ -12,6 +12,87 @@
   </div>
 
   <div class="card">
+    <h2><%= t('admin.preferenceTitle') %></h2>
+    <p class="hint"><%= t('admin.preferenceSub') %></p>
+    <% if (prefTotal === 0) { %>
+      <p class="muted"><%= t('admin.prefNone') %></p>
+    <% } else { %>
+      <div class="row-3 stat-mini">
+        <div class="stat"><strong><%= pref.games || 0 %></strong><span><%= t('admin.prefGames') %></span></div>
+        <div class="stat"><strong><%= pref.exams || 0 %></strong><span><%= t('admin.prefExam') %></span></div>
+        <div class="stat"><strong><%= Math.round(((pref.games || 0) / prefTotal) * 100) %>% / <%= Math.round(((pref.exams || 0) / prefTotal) * 100) %>%</strong><span><%= t('admin.prefSplit') %></span></div>
+      </div>
+      <div class="bar">
+        <div class="bar-fill bar-games" style="width:<%= Math.round(((pref.games || 0) / prefTotal) * 100) %>%"></div>
+        <div class="bar-fill bar-exams" style="width:<%= Math.round(((pref.exams || 0) / prefTotal) * 100) %>%"></div>
+      </div>
+    <% } %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th><%= t('parent.childName') %></th>
+          <th><%= t('school.title') %></th>
+          <th><%= t('admin.prefGames') %></th>
+          <th><%= t('admin.prefExam') %></th>
+          <th><%= t('admin.prefPreference') %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% prefByChild.forEach(function(row){ %>
+          <tr>
+            <td><%= row.display_name %></td>
+            <td class="small"><%= gradeInfo(row.school_level) ? gradeLabel(row.school_level) : '—' %></td>
+            <td><%= row.games %></td>
+            <td><%= row.exams %></td>
+            <td><span class="chip chip-<%= row.label %>"><%= t({games:'admin.prefGames',exam:'admin.prefExam',balanced:'admin.prefBalanced',none:'admin.prefNoData'}[row.label]) %></span></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><%= t('admin.speedTitle') %></h2>
+    <p class="hint"><%= t('admin.speedSub') %></p>
+    <% if (children.length === 0) { %>
+      <p class="muted"><%= t('admin.speedNoData') %></p>
+    <% } else { %>
+      <% if (activeChildren > 0) { %>
+        <div class="row-3 stat-mini">
+          <div class="stat"><strong><%= avg.avgAttemptsToPass === null ? '—' : avg.avgAttemptsToPass %></strong><span><%= t('admin.avgAttemptsToPass') %></span></div>
+          <div class="stat"><strong><%= avg.firstTryPct %>%</strong><span><%= t('admin.firstTryRate') %></span></div>
+          <div class="stat"><strong><%= avg.avgTimeLabel === null ? '—' : avg.avgTimeLabel %></strong><span><%= t('admin.avgTime') %></span></div>
+        </div>
+        <p class="hint small"><%= t('admin.classAvgHint') %></p>
+      <% } %>
+      <table class="table">
+        <thead>
+          <tr>
+            <th><%= t('parent.childName') %></th>
+            <th><%= t('admin.passedLessons') %></th>
+            <th><%= t('admin.avgAttemptsToPass') %></th>
+            <th><%= t('admin.firstTryRate') %></th>
+            <th><%= t('admin.avgTime') %></th>
+            <th><%= t('admin.speedVsClass') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% speed.forEach(function(row){ %>
+            <tr>
+              <td><%= row.child.display_name %></td>
+              <td><%= row.metrics.passedCount %> / <%= row.metrics.totalAttempted %></td>
+              <td><%= row.avgAttemptsToPass === null ? '—' : row.avgAttemptsToPass %></td>
+              <td><%= row.metrics.totalAttempted ? row.firstTryPct + '%' : '—' %></td>
+              <td><%= row.avgTimeLabel === null ? '—' : row.avgTimeLabel %></td>
+              <td><span class="chip chip-<%= row.label %>"><%= t({faster:'admin.speedFaster',about:'admin.speedAbout',slower:'admin.speedSlower',none:'admin.speedNoData'}[row.label]) %></span></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+
+  <div class="card">
     <h2><%= t('admin.usersTitle') %></h2>
     <div class="create-form">
       <form action="/admin/users" method="post" class="inline-row">
